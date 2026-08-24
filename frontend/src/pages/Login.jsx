@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { Box, Paper, TextField, Button, Typography, Alert } from '@mui/material';
 import { loginUser } from '../services/api';
 import { Link } from 'react-router-dom'
+import { useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const { login } = useContext(AuthContext);
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -14,13 +19,8 @@ const Login = () => {
 
         try {
             const data = await loginUser({ email, password });
-            
-            // Guardamos el token en localStorage para mantener la sesión
-            localStorage.setItem('token', data.token);
-            
-            // Aquí puedes redirigir al usuario (ej. usando react-router-dom)
-            console.log("Login exitoso, usuario:", data.user);
-            
+            login(data.user, data.token); // Guardamos en el estado global
+            navigate('/dashboard');       // Lo mandamos adentro de la app
         } catch (err) {
             setError(err.message);
         }

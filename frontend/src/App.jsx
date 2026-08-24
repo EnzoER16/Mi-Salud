@@ -1,22 +1,42 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useContext } from 'react';
+import { AuthProvider, AuthContext } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+
+// Componente para proteger rutas
+const ProtectedRoute = ({ children }) => {
+    const { user, loading } = useContext(AuthContext);
+    
+    if (loading) return <div>Cargando...</div>;
+    if (!user) return <Navigate to="/login" replace />;
+    
+    return children;
+};
 
 function App() {
-  return (
-    <Router>
-      <Routes>
-        {/* Ruta por defecto: redirige al Login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        
-        {/* Rutas de autenticación */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
-        {/* Más adelante agregaremos las rutas protegidas del Dashboard acá */}
-      </Routes>
-    </Router>
-  );
+    return (
+        <AuthProvider>
+            <Router>
+                <Routes>
+                    <Route path="/" element={<Navigate to="/login" replace />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    
+                    {/* Ruta protegida */}
+                    <Route 
+                        path="/dashboard" 
+                        element={
+                            <ProtectedRoute>
+                                <Dashboard />
+                            </ProtectedRoute>
+                        } 
+                    />
+                </Routes>
+            </Router>
+        </AuthProvider>
+    );
 }
 
 export default App;
