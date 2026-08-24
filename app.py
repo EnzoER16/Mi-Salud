@@ -2,7 +2,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from config.settings import Configuration, db
-from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake
+from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history
 from routes.auth_routes import auth_bp
 from routes.patient_routes import patient_bp
 from routes.doctor_routes import doctor_bp
