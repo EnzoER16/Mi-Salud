@@ -5,7 +5,7 @@ from config.settings import db
 from models.user import User
 from google.oauth2 import id_token
 from google.auth.transport import requests
-import secrets
+import secrets, os
 
 def role_required(*allowed_roles):
     def decorator(fn):
@@ -90,7 +90,7 @@ def google_auth():
     try:
         # Reemplaza esto con tu CLIENT_ID real de Google Cloud Console
         # Lo ideal es traerlo desde un archivo .env: os.environ.get("GOOGLE_CLIENT_ID")
-        CLIENT_ID = "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com" 
+        CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
         
         # Verifica el token con los servidores de Google
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), CLIENT_ID)
