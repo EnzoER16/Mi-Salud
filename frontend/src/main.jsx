@@ -1,34 +1,31 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 
 // Importaciones de Material UI
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
 
-// Opcional: Podés personalizar los colores principales de tu app acá
 const theme = createTheme({
   palette: {
-    primary: {
-      main: '#00838F', // Un tono verde/azulado médico (podés cambiarlo)
-    },
-    secondary: {
-      main: '#4DB6AC', 
-    },
-    background: {
-      default: '#f5f5f5'
-    }
+    primary: { main: '#00838F' },
+    secondary: { main: '#4DB6AC' },
+    background: { default: '#f5f5f5' }
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   }
 })
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      {/* CssBaseline normaliza los estilos y aplica el color de fondo del tema */}
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
+    </GoogleOAuthProvider>
   </React.StrictMode>,
 )

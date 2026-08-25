@@ -29,3 +29,19 @@ export const registerUser = async (userData) => {
     
     return response.json();
 };
+
+export const loginWithGoogle = async (googleToken) => {
+    const response = await fetch(`${API_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // El backend espera recibir { "token": "..." }
+        body: JSON.stringify({ token: googleToken }),
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al autenticar con Google");
+    }
+    
+    return response.json(); // Devuelve { token, user }
+};
