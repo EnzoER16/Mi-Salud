@@ -92,3 +92,39 @@ export const getProfile = async (role) => {
     
     return response.json(); // Devuelve los datos del paciente o del médico
 };
+
+export const getMedicalRecord = async () => {
+    const token = localStorage.getItem('token');
+    
+    // CORRECCIÓN: Apuntamos a /medical-record/ (con la barra al final)
+    const response = await fetch(`${API_URL}/medical-record/`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+        if (response.status === 404) return null; 
+        throw new Error("Error al obtener la ficha médica");
+    }
+    return response.json();
+};
+
+export const saveMedicalRecord = async (recordData) => {
+    const token = localStorage.getItem('token');
+    
+    // CORRECCIÓN: Apuntamos a /medical-record/ (con la barra al final)
+    const response = await fetch(`${API_URL}/medical-record/`, {
+        method: "POST", 
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(recordData),
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al guardar la ficha médica");
+    }
+    return response.json();
+};

@@ -67,6 +67,16 @@ const Dashboard = () => {
                             <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
                             <Typography variant="body1"><strong>Obra Social:</strong> {profileData.health_insurance} (Plan {profileData.plan})</Typography>
                             <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
+                            
+                            <Button 
+                                variant="contained" 
+                                color="primary" 
+                                sx={{ mt: 2 }}
+                                onClick={() => navigate('/medical-record')}
+                            >
+                                Ver / Editar mi Ficha Médica
+                            </Button>
+
                         </>
                     )}
                     

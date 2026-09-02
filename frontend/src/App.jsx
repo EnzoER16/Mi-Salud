@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CompleteProfile from './pages/CompleteProfile';
+import MedicalRecord from './pages/MedicalRecord';
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children }) => {
@@ -43,6 +44,16 @@ function App() {
                             </ProtectedRoute>
                         } 
                     />
+
+                    <Route
+                        path="/medical-record"
+                        element={
+                            <ProtectedRoute>
+                                <MedicalRecord />
+                            </ProtectedRoute>
+                        }
+                    />
+
                 </Routes>
             </Router>
         </AuthProvider>
