@@ -45,3 +45,50 @@ export const loginWithGoogle = async (googleToken) => {
     
     return response.json(); // Devuelve { token, user }
 };
+
+export const createProfile = async (profileData, role) => {
+    const token = localStorage.getItem('token');
+    
+    // Determinamos a qué endpoint apuntar según el rol
+    const endpoint = role === 'Paciente' ? '/patient/profile' : '/doctor/profile';
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}` // Enviamos el JWT para pasar la seguridad
+        },
+        body: JSON.stringify(profileData),
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al guardar el perfil");
+    }
+    
+    return response.json();
+};
+
+export const getProfile = async (role) => {
+    const token = localStorage.getItem('token');
+    const endpoint = role === 'Paciente' ? '/patient/profile' : '/doctor/profile';
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "GET",
+        headers: { 
+            "Authorization": `Bearer ${token}`
+        }
+    });
+    
+    if (!response.ok) {
+        // Si el backend nos dice que no encontró el perfil, devolvemos null
+        if (response.status === 404) {
+            return null;
+        }
+        // Si es otro tipo de error, lo lanzamos
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al obtener el perfil");
+    }
+    
+    return response.json(); // Devuelve los datos del paciente o del médico
+};

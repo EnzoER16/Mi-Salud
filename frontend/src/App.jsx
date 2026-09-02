@@ -4,6 +4,7 @@ import { AuthProvider, AuthContext } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import CompleteProfile from './pages/CompleteProfile';
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children }) => {
@@ -30,6 +31,15 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <Dashboard />
+                            </ProtectedRoute>
+                        } 
+                    />
+
+                    <Route 
+                        path="/complete-profile" 
+                        element={
+                            <ProtectedRoute>
+                                <CompleteProfile />
                             </ProtectedRoute>
                         } 
                     />
