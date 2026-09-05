@@ -16,7 +16,6 @@ const MedicalRecord = () => {
     const [allergies, setAllergies] = useState('');
     const [antecedents, setAntecedents] = useState('');
 
-    // Al cargar la pantalla, buscamos si ya existe una ficha
     useEffect(() => {
         const fetchRecord = async () => {
             try {
@@ -42,11 +41,7 @@ const MedicalRecord = () => {
         setSuccess('');
 
         try {
-            await saveMedicalRecord({
-                blood_group: bloodGroup,
-                allergies,
-                antecedents
-            });
+            await saveMedicalRecord({ blood_group: bloodGroup, allergies, antecedents });
             setSuccess('Ficha médica guardada exitosamente.');
             setTimeout(() => navigate('/dashboard'), 2000);
         } catch (err) {
@@ -56,75 +51,42 @@ const MedicalRecord = () => {
 
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
                 <CircularProgress />
             </Box>
         );
     }
 
     return (
-        <Box sx={{ p: 4, minHeight: '100vh', backgroundColor: '#f5f5f5', display: 'flex', justifyContent: 'center' }}>
-            <Paper elevation={3} sx={{ p: 4, width: '100%', maxWidth: 600, borderRadius: 2, height: 'fit-content' }}>
-                <Typography variant="h5" color="primary" gutterBottom fontWeight="bold">
-                    Mi Ficha Médica
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                    Mantené actualizada tu información clínica. Esto será vital para los médicos que te atiendan.
-                </Typography>
+        <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
+            <Typography variant="h5" color="primary" gutterBottom fontWeight="bold">
+                Mi Ficha Médica
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+                Mantené actualizada tu información clínica. Esto será vital para los médicos que te atiendan.
+            </Typography>
 
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-                <form onSubmit={handleSubmit}>
-                    <TextField
-                        select
-                        fullWidth
-                        label="Grupo Sanguíneo"
-                        value={bloodGroup}
-                        onChange={(e) => setBloodGroup(e.target.value)}
-                        margin="normal"
-                        required
-                    >
-                        {BLOOD_GROUPS.map((option) => (
-                            <MenuItem key={option} value={option}>
-                                {option}
-                            </MenuItem>
-                        ))}
-                    </TextField>
+            <form onSubmit={handleSubmit}>
+                <TextField select fullWidth label="Grupo Sanguíneo" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} margin="normal" required>
+                    {BLOOD_GROUPS.map((option) => (
+                        <MenuItem key={option} value={option}>{option}</MenuItem>
+                    ))}
+                </TextField>
 
-                    <TextField
-                        fullWidth
-                        label="Alergias Conocidas"
-                        placeholder="Ej: Penicilina, Ibuprofeno, Maní (Dejar en blanco si no tiene)"
-                        multiline
-                        rows={3}
-                        margin="normal"
-                        value={allergies}
-                        onChange={(e) => setAllergies(e.target.value)}
-                    />
+                <TextField fullWidth label="Alergias Conocidas" placeholder="Ej: Penicilina, Ibuprofeno, Maní (Dejar en blanco si no tiene)" multiline rows={3} margin="normal" value={allergies} onChange={(e) => setAllergies(e.target.value)} />
 
-                    <TextField
-                        fullWidth
-                        label="Antecedentes Médicos / Enfermedades Crónicas"
-                        placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2"
-                        multiline
-                        rows={4}
-                        margin="normal"
-                        value={antecedents}
-                        onChange={(e) => setAntecedents(e.target.value)}
-                    />
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')}>
-                            Volver
-                        </Button>
-                        <Button type="submit" variant="contained" color="primary">
-                            Guardar Ficha
-                        </Button>
-                    </Box>
-                </form>
-            </Paper>
-        </Box>
+                <TextField fullWidth label="Antecedentes Médicos / Enfermedades Crónicas" placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2" multiline rows={4} margin="normal" value={antecedents} onChange={(e) => setAntecedents(e.target.value)} />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                    <Button type="submit" variant="contained" color="primary">
+                        Guardar Ficha
+                    </Button>
+                </Box>
+            </form>
+        </Paper>
     );
 };
 
