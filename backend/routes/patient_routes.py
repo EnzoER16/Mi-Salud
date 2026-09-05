@@ -22,7 +22,7 @@ def create_or_update_profile():
     member_number = (data.get("member_number") or "").strip()
     address = (data.get("address") or "").strip()
 
-    if not dni or not health_insurance or not member_number or not address:
+    if not dni:
         return jsonify({"message": "Faltan datos obligatorios para completar el perfil"}), 400
 
     patient = Patient.query.filter_by(id_user=user_id).first()

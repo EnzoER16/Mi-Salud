@@ -97,12 +97,15 @@ const CompleteProfile = () => {
             <form onSubmit={handleSubmit}>
                 {user?.role === 'Paciente' ? (
                     <>
-                        <TextField fullWidth label="DNI" variant="outlined" margin="normal" required value={dni} onChange={(e) => setDni(e.target.value)} />
-                        <TextField fullWidth label="Obra Social" variant="outlined" margin="normal" required value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />
-                        <TextField fullWidth label="Plan" variant="outlined" margin="normal" value={plan} onChange={(e) => setPlan(e.target.value)} />
-                        <TextField fullWidth label="Número de Afiliado" variant="outlined" margin="normal" required value={memberNumber} onChange={(e) => setMemberNumber(e.target.value)} />
-                        <TextField fullWidth label="Dirección" variant="outlined" margin="normal" required value={address} onChange={(e) => setAddress(e.target.value)} />
-                    </>
+                            {/* El DNI suele ser el único dato estrictamente obligatorio para identificar al paciente */}
+                            <TextField fullWidth label="DNI" variant="outlined" margin="normal" required value={dni} onChange={(e) => setDni(e.target.value)} />
+                            
+                            {/* Los demás campos ya NO tienen la etiqueta 'required' */}
+                            <TextField fullWidth label="Obra Social" variant="outlined" margin="normal" value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />
+                            <TextField fullWidth label="Plan" variant="outlined" margin="normal" value={plan} onChange={(e) => setPlan(e.target.value)} />
+                            <TextField fullWidth label="Número de Afiliado" variant="outlined" margin="normal" value={memberNumber} onChange={(e) => setMemberNumber(e.target.value)} />
+                            <TextField fullWidth label="Dirección" variant="outlined" margin="normal" value={address} onChange={(e) => setAddress(e.target.value)} />
+                        </>
                 ) : (
                     <>
                         <TextField fullWidth label="Especialidad" variant="outlined" margin="normal" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
