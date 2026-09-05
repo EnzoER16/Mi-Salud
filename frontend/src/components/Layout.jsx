@@ -37,7 +37,7 @@ const Layout = ({ children }) => {
                             {/* Solo el paciente ve el acceso directo a su ficha por ahora */}
                             {user.role === 'Paciente' && (
                                 <Button color="inherit" onClick={() => navigate('/medical-record')}>
-                                    Mi Ficha
+                                    Mi perfil
                                 </Button>
                             )}
                             

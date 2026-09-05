@@ -67,26 +67,6 @@ const Dashboard = () => {
                                 <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
                                 <Typography variant="body1"><strong>Obra Social:</strong> {profileData.health_insurance} (Plan {profileData.plan})</Typography>
                                 <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
-                                
-                                <Button 
-                                    variant="contained" 
-                                    color="primary" 
-                                    sx={{ mt: 3 }}
-                                    onClick={() => navigate('/medical-record')}
-                                >
-                                    Ver / Editar mi Ficha Médica
-                                </Button>
-
-
-                                <Button 
-                                    variant="outlined" 
-                                    color="primary" 
-                                    sx={{ mt: 3, ml: { xs: 0, sm: 2 } }} // Margen izquierdo en pantallas grandes
-                                    onClick={() => navigate('/complete-profile')}
-                                >
-                                    Editar Datos Personales
-                                </Button>
-
                             </>
                         )}
                         
@@ -96,6 +76,17 @@ const Dashboard = () => {
                                 <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
                             </>
                         )}
+
+                        {/* Un único botón claro para administrar el perfil, eliminamos el duplicado de la ficha */}
+                        <Box sx={{ mt: 3 }}>
+                            <Button 
+                                variant="outlined" 
+                                color="primary" 
+                                onClick={() => navigate('/complete-profile')}
+                            >
+                                Editar Datos Personales
+                            </Button>
+                        </Box>
                     </>
                 )}
             </Box>
