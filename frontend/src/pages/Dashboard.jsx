@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { Box, Typography, Button, Paper, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Paper, CircularProgress, Alert } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../services/api';
@@ -15,15 +15,11 @@ const Dashboard = () => {
         const fetchProfile = async () => {
             try {
                 const data = await getProfile(user.role);
-                
-                if (!data) {
-                    navigate('/complete-profile', { replace: true });
-                } else {
-                    setProfileData(data);
-                    setLoadingProfile(false);
-                }
+                // Ya NO redirigimos. Solo guardamos los datos (o null si no tiene perfil).
+                setProfileData(data);
             } catch (error) {
                 console.error("Error validando el perfil:", error);
+            } finally {
                 setLoadingProfile(false);
             }
         };
@@ -31,7 +27,7 @@ const Dashboard = () => {
         if (user) {
             fetchProfile();
         }
-    }, [user, navigate]);
+    }, [user]);
 
     if (loadingProfile) {
         return (
@@ -46,33 +42,60 @@ const Dashboard = () => {
             <Typography variant="h4" color="primary" gutterBottom>
                 Bienvenido, {user?.username}
             </Typography>
-            
-            <Typography variant="subtitle1" color="textSecondary" sx={{ mb: 2, fontWeight: 'bold' }}>
-                Rol: {user?.role}
-            </Typography>
 
             <Box sx={{ p: 2, backgroundColor: '#f0f4f8', borderRadius: 1 }}>
-                {user?.role === 'Paciente' && profileData && (
+                
+                {/* CONDICIÓN 1: El usuario todavía NO completó su perfil */}
+                {!profileData ? (
                     <>
-                        <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
-                        <Typography variant="body1"><strong>Obra Social:</strong> {profileData.health_insurance} (Plan {profileData.plan})</Typography>
-                        <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
-                        
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            Aún no has completado tus datos personales. Por favor, complétalos para habilitar todas las funciones.
+                        </Alert>
                         <Button 
                             variant="contained" 
                             color="primary" 
-                            sx={{ mt: 3 }}
-                            onClick={() => navigate('/medical-record')}
+                            onClick={() => navigate('/complete-profile')}
                         >
-                            Ver / Editar mi Ficha Médica
+                            Completar mi Perfil
                         </Button>
                     </>
-                )}
-                
-                {user?.role === 'Doctor' && profileData && (
+                ) : (
+                    /* CONDICIÓN 2: El usuario YA completó su perfil, mostramos sus datos */
                     <>
-                        <Typography variant="body1"><strong>Especialidad:</strong> {profileData.specialty}</Typography>
-                        <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
+                        {user?.role === 'Paciente' && (
+                            <>
+                                <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
+                                <Typography variant="body1"><strong>Obra Social:</strong> {profileData.health_insurance} (Plan {profileData.plan})</Typography>
+                                <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
+                                
+                                <Button 
+                                    variant="contained" 
+                                    color="primary" 
+                                    sx={{ mt: 3 }}
+                                    onClick={() => navigate('/medical-record')}
+                                >
+                                    Ver / Editar mi Ficha Médica
+                                </Button>
+
+
+                                <Button 
+                                    variant="outlined" 
+                                    color="primary" 
+                                    sx={{ mt: 3, ml: { xs: 0, sm: 2 } }} // Margen izquierdo en pantallas grandes
+                                    onClick={() => navigate('/complete-profile')}
+                                >
+                                    Editar Datos Personales
+                                </Button>
+
+                            </>
+                        )}
+                        
+                        {user?.role === 'Doctor' && (
+                            <>
+                                <Typography variant="body1"><strong>Especialidad:</strong> {profileData.specialty}</Typography>
+                                <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
+                            </>
+                        )}
                     </>
                 )}
             </Box>

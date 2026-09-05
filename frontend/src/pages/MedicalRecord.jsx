@@ -80,8 +80,19 @@ const MedicalRecord = () => {
 
                 <TextField fullWidth label="Antecedentes Médicos / Enfermedades Crónicas" placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2" multiline rows={4} margin="normal" value={antecedents} onChange={(e) => setAntecedents(e.target.value)} />
                 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-                    <Button type="submit" variant="contained" color="primary">
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                    <Button 
+                        variant="outlined" 
+                        color="inherit" 
+                        onClick={() => navigate('/dashboard')}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button 
+                        type="submit" 
+                        variant="contained" 
+                        color="primary"
+                    >
                         Guardar Ficha
                     </Button>
                 </Box>
