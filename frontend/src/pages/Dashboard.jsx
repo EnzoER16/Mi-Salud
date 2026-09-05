@@ -64,9 +64,30 @@ const Dashboard = () => {
                     <>
                         {user?.role === 'Paciente' && (
                             <>
+                                {/* El DNI siempre se muestra porque es obligatorio */}
                                 <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
-                                <Typography variant="body1"><strong>Obra Social:</strong> {profileData.health_insurance} (Plan {profileData.plan})</Typography>
-                                <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
+                                
+                                {/* Mostramos la Obra Social solo si existe. Y el Plan solo si existe el plan. */}
+                                {profileData.health_insurance && (
+                                    <Typography variant="body1">
+                                        <strong>Obra Social:</strong> {profileData.health_insurance} 
+                                        {profileData.plan ? ` (Plan ${profileData.plan})` : ''}
+                                    </Typography>
+                                )}
+                                
+                                {/* Mostramos el N° de Afiliado solo si lo completó */}
+                                {profileData.member_number && (
+                                    <Typography variant="body1">
+                                        <strong>N° Afiliado:</strong> {profileData.member_number}
+                                    </Typography>
+                                )}
+
+                                {/* Mostramos la Dirección solo si la completó */}
+                                {profileData.address && (
+                                    <Typography variant="body1">
+                                        <strong>Dirección:</strong> {profileData.address}
+                                    </Typography>
+                                )}
                             </>
                         )}
                         
