@@ -1,23 +1,33 @@
-import { useContext } from 'react';
-import { AppBar, Box, Toolbar, Typography, Button, Container } from '@mui/material';
+import { useContext, useState } from 'react';
+import { AppBar, Box, Toolbar, Typography, Container, IconButton, Menu, MenuItem, Divider, Avatar, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const Layout = ({ children }) => {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
+    
+    const [anchorEl, setAnchorEl] = useState(null);
+
+    const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
+    const handleMenuClose = () => setAnchorEl(null);
+
+    const handleNavigate = (path) => {
+        handleMenuClose();
+        navigate(path);
+    };
 
     const handleLogout = () => {
+        handleMenuClose();
         logout();
         navigate('/login');
     };
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-            {/* Barra de Navegación Superior */}
             <AppBar position="static" color="primary" elevation={2}>
                 <Toolbar>
-                    {/* Logo / Nombre de la app (Clickeable) */}
+                    {/* Logo clickeable */}
                     <Typography 
                         variant="h6" 
                         component="div" 
@@ -27,33 +37,58 @@ const Layout = ({ children }) => {
                         MiSalud+
                     </Typography>
                     
-                    {/* Botones de navegación (solo se muestran si hay usuario) */}
                     {user && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Button color="inherit" onClick={() => navigate('/dashboard')}>
-                                Inicio
-                            </Button>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             
-                            {/* Solo el paciente ve el acceso directo a su ficha por ahora */}
-                            {user.role === 'Paciente' && (
-                                <Button color="inherit" onClick={() => navigate('/medical-record')}>
-                                    Mi perfil
-                                </Button>
-                            )}
-                            
+                            {/* NUEVO BOTÓN DE INICIO EXPLÍCITO */}
                             <Button 
                                 color="inherit" 
-                                onClick={handleLogout} 
-                                sx={{ ml: 2, border: '1px solid rgba(255,255,255,0.5)' }}
+                                onClick={() => handleNavigate('/dashboard')}
+                                sx={{ fontWeight: '500', textTransform: 'none', fontSize: '1rem' }}
                             >
-                                Salir
+                                Inicio
                             </Button>
+
+                            <IconButton onClick={handleMenuOpen} color="inherit" sx={{ p: 0 }}>
+                                <Avatar sx={{ bgcolor: 'secondary.main', color: '#fff' }}>
+                                    {user.username.charAt(0).toUpperCase()}
+                                </Avatar>
+                            </IconButton>
+                            
+                            {/* Menú Desplegable */}
+                            <Menu
+                                anchorEl={anchorEl}
+                                open={Boolean(anchorEl)}
+                                onClose={handleMenuClose}
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                            >
+                                <MenuItem disabled>
+                                    <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'bold' }}>
+                                        {user.username} {/* ({user.role}) */}
+                                    </Typography>
+                                </MenuItem>
+                                <Divider />
+                                
+                                {user.role === 'Paciente' && [
+                                    <MenuItem key="datos" onClick={() => handleNavigate('/complete-profile')}>Datos Personales</MenuItem>,
+                                    <MenuItem key="ficha" onClick={() => handleNavigate('/medical-record')}>Mi Ficha Médica</MenuItem>
+                                ]}
+                                
+                                {user.role === 'Doctor' && (
+                                    <MenuItem onClick={() => handleNavigate('/complete-profile')}>Datos Profesionales</MenuItem>
+                                )}
+                                
+                                <Divider />
+                                <MenuItem onClick={handleLogout} sx={{ color: 'error.main', fontWeight: 'bold' }}>
+                                    Cerrar Sesión
+                                </MenuItem>
+                            </Menu>
                         </Box>
                     )}
                 </Toolbar>
             </AppBar>
 
-            {/* Contenedor principal donde se inyectarán las pantallas (Dashboard, Ficha, etc.) */}
             <Container component="main" maxWidth="md" sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}>
                 {children}
             </Container>
