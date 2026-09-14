@@ -2,7 +2,10 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from config.settings import db
 from models.doctor import Doctor
+from models.patient import Patient
+from models.medical_consultation import MedicalConsultation
 from routes.auth_routes import role_required
+from datetime import datetime, timezone
 
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
 
@@ -47,3 +50,33 @@ def get_profile():
         return jsonify({"message": "Perfil de médico no encontrado. Por favor, complete sus datos."}), 404
 
     return jsonify(doctor.to_json()), 200
+
+# Asumiendo que tu Blueprint se llama doctor_bp y tiene url_prefix='/api/doctor'
+@doctor_bp.route("/patient/<string:dni>", methods=["GET"])
+@jwt_required()
+@role_required("Doctor")
+def get_patient_by_dni(dni):
+    # 1. Buscamos al paciente usando el DNI
+    patient = Patient.query.filter_by(dni=dni).first()
+    
+    if not patient:
+        return jsonify({"message": "No se encontró ningún paciente con ese DNI."}), 404
+
+    # 2. Preparamos los datos de la ficha médica (si la tiene)
+    # Gracias a db.relationship, podemos acceder directamente con patient.medical_record
+    record_data = None
+    if patient.medical_record:
+        record_data = {
+            "blood_group": patient.medical_record.blood_group,
+            "allergies": patient.medical_record.allergies,
+            "antecedents": patient.medical_record.antecedents
+        }
+    
+    # 3. Devolvemos los datos estructurados para React
+    return jsonify({
+        "id_patient": patient.id_patient,
+        "dni": patient.dni,
+        "health_insurance": patient.health_insurance,
+        "plan": patient.plan,
+        "medical_record": record_data
+    }), 200

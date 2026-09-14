@@ -1,8 +1,11 @@
 import { useContext, useEffect, useState } from 'react';
-import { Box, Typography, Button, Paper, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Button, Paper, CircularProgress, Alert, Grid } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../services/api';
+// 1. Importamos el componente para dibujar el QR
+import { QRCodeSVG } from 'qrcode.react';
+import DoctorSearch from '../components/DoctorSearch';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
@@ -15,7 +18,6 @@ const Dashboard = () => {
         const fetchProfile = async () => {
             try {
                 const data = await getProfile(user.role);
-                // Ya NO redirigimos. Solo guardamos los datos (o null si no tiene perfil).
                 setProfileData(data);
             } catch (error) {
                 console.error("Error validando el perfil:", error);
@@ -42,73 +44,84 @@ const Dashboard = () => {
             <Typography variant="h4" color="primary" gutterBottom>
                 Bienvenido, {user?.username}
             </Typography>
+            
+            <Typography variant="subtitle1" color="textSecondary" sx={{ mb: 2, fontWeight: 'bold' }}>
+                Rol: {user?.role}
+            </Typography>
 
             <Box sx={{ p: 2, backgroundColor: '#f0f4f8', borderRadius: 1 }}>
-                
-                {/* CONDICIÓN 1: El usuario todavía NO completó su perfil */}
                 {!profileData ? (
                     <>
                         <Alert severity="warning" sx={{ mb: 2 }}>
                             Aún no has completado tus datos personales. Por favor, complétalos para habilitar todas las funciones.
                         </Alert>
-                        <Button 
-                            variant="contained" 
-                            color="primary" 
-                            onClick={() => navigate('/complete-profile')}
-                        >
+                        <Button variant="contained" color="primary" onClick={() => navigate('/complete-profile')}>
                             Completar mi Perfil
                         </Button>
                     </>
                 ) : (
-                    /* CONDICIÓN 2: El usuario YA completó su perfil, mostramos sus datos */
-                    <>
-                        {user?.role === 'Paciente' && (
-                            <>
-                                {/* El DNI siempre se muestra porque es obligatorio */}
-                                <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
-                                
-                                {/* Mostramos la Obra Social solo si existe. Y el Plan solo si existe el plan. */}
-                                {profileData.health_insurance && (
-                                    <Typography variant="body1">
-                                        <strong>Obra Social:</strong> {profileData.health_insurance} 
-                                        {profileData.plan ? ` (Plan ${profileData.plan})` : ''}
-                                    </Typography>
-                                )}
-                                
-                                {/* Mostramos el N° de Afiliado solo si lo completó */}
-                                {profileData.member_number && (
-                                    <Typography variant="body1">
-                                        <strong>N° Afiliado:</strong> {profileData.member_number}
-                                    </Typography>
-                                )}
+                    <Grid container spacing={3} alignItems="center">
+                        
+                        {/* COLUMNA IZQUIERDA: Datos Personales */}
+                        <Grid item xs={12} md={user?.role === 'Paciente' ? 8 : 12}>
+                            {user?.role === 'Paciente' && (
+                                <>
+                                    <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
+                                    
+                                    {profileData.health_insurance && (
+                                        <Typography variant="body1">
+                                            <strong>Obra Social:</strong> {profileData.health_insurance} {profileData.plan ? ` (Plan ${profileData.plan})` : ''}
+                                        </Typography>
+                                    )}
+                                    {profileData.member_number && (
+                                        <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
+                                    )}
+                                    {profileData.address && (
+                                        <Typography variant="body1"><strong>Dirección:</strong> {profileData.address}</Typography>
+                                    )}
+                                </>
+                            )}
+                            
+                            {user?.role === 'Doctor' && (
+                                <>
+                                    <Typography variant="body1"><strong>Especialidad:</strong> {profileData.specialty}</Typography>
+                                    <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
+                                    
+                                    {/* Agregamos la nueva herramienta de búsqueda */}
+                                    <DoctorSearch />
+                                </>
+                            )}
 
-                                {/* Mostramos la Dirección solo si la completó */}
-                                {profileData.address && (
-                                    <Typography variant="body1">
-                                        <strong>Dirección:</strong> {profileData.address}
+                            <Box sx={{ mt: 3 }}>
+                                <Button variant="outlined" color="primary" onClick={() => navigate('/complete-profile')}>
+                                    Editar Datos Personales
+                                </Button>
+                            </Box>
+                        </Grid>
+
+                        {/* COLUMNA DERECHA: Código QR (Solo para Pacientes) */}
+                        {user?.role === 'Paciente' && (
+                            <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <Paper elevation={3} sx={{ p: 2, backgroundColor: '#fff', textAlign: 'center', borderRadius: 2 }}>
+                                    
+                                    {/* Aquí generamos el QR. Le pasamos el DNI como valor. */}
+                                    <QRCodeSVG 
+                                        value={profileData.dni} 
+                                        size={150} 
+                                        level="H" // Nivel de corrección de errores alto
+                                    />
+                                    
+                                    <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 'bold', color: 'text.secondary' }}>
+                                        DNI: {profileData.dni}
                                     </Typography>
-                                )}
-                            </>
+                                    <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
+                                        Mostrá este código al médico
+                                    </Typography>
+                                </Paper>
+                            </Grid>
                         )}
                         
-                        {user?.role === 'Doctor' && (
-                            <>
-                                <Typography variant="body1"><strong>Especialidad:</strong> {profileData.specialty}</Typography>
-                                <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
-                            </>
-                        )}
-
-                        {/* Un único botón claro para administrar el perfil, eliminamos el duplicado de la ficha */}
-                        <Box sx={{ mt: 3 }}>
-                            <Button 
-                                variant="outlined" 
-                                color="primary" 
-                                onClick={() => navigate('/complete-profile')}
-                            >
-                                Editar Datos Personales
-                            </Button>
-                        </Box>
-                    </>
+                    </Grid>
                 )}
             </Box>
         </Paper>

@@ -97,8 +97,21 @@ const CompleteProfile = () => {
             <form onSubmit={handleSubmit}>
                 {user?.role === 'Paciente' ? (
                     <>
-                            {/* El DNI suele ser el único dato estrictamente obligatorio para identificar al paciente */}
-                            <TextField fullWidth label="DNI" variant="outlined" margin="normal" required value={dni} onChange={(e) => setDni(e.target.value)} />
+                        {/* Campo DNI con validación estricta de números y máximo de 8 caracteres */}
+                        <TextField 
+                            fullWidth 
+                            label="DNI" 
+                            variant="outlined" 
+                            margin="normal" 
+                            required 
+                            value={dni} 
+                            onChange={(e) => {
+                                // Esta línea elimina cualquier cosa que NO sea un número (0-9)
+                                const soloNumeros = e.target.value.replace(/[^0-9]/g, '');
+                                setDni(soloNumeros);
+                            }} 
+                            inputProps={{ maxLength: 8 }} // Limita la cantidad máxima a 8 números
+                        />
                             
                             {/* Los demás campos ya NO tienen la etiqueta 'required' */}
                             <TextField fullWidth label="Obra Social" variant="outlined" margin="normal" value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />

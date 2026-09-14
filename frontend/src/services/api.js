@@ -128,3 +128,33 @@ export const saveMedicalRecord = async (recordData) => {
     }
     return response.json();
 };
+
+export const getPatientByDni = async (dni) => {
+    const token = localStorage.getItem('token');
+    
+    // Asumimos que vas a crear esta ruta en tu Flask
+    const response = await fetch(`${API_URL}/doctor/patient/${dni}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    
+    return handleResponse(response);
+};
+
+// 1. ESTA ES LA FUNCIÓN QUE FALTABA O ESTABA MAL UBICADA
+const handleResponse = async (response) => {
+    if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login'; 
+        throw new Error("Tu sesión ha expirado.");
+    }
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error de comunicación con el servidor");
+    }
+    if (response.status === 204) return true;
+    return response.json();
+};
