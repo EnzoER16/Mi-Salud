@@ -158,3 +158,21 @@ const handleResponse = async (response) => {
     if (response.status === 204) return true;
     return response.json();
 };
+
+export const getDoctorHistory = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/doctor/history`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const getPatientHistory = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/patient/history`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};

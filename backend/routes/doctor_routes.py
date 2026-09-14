@@ -80,3 +80,32 @@ def get_patient_by_dni(dni):
         "plan": patient.plan,
         "medical_record": record_data
     }), 200
+
+@doctor_bp.route("/history", methods=["GET"])
+@jwt_required()
+@role_required("Doctor")
+def get_doctor_history():
+    user_id = get_jwt_identity()
+    doctor = Doctor.query.filter_by(id_user=user_id).first()
+    
+    if not doctor:
+        return jsonify({"message": "Perfil de médico no encontrado."}), 403
+
+    # Buscamos todas las consultas de este médico (idealmente ordenadas, pero lo hacemos simple)
+    consultations = MedicalConsultation.query.filter_by(id_doctor=doctor.id_doctor).all()
+    
+    history_data = []
+    for c in consultations:
+        # Buscamos al paciente de esta consulta para mostrar su DNI
+        patient = Patient.query.get(c.id_patient)
+        
+        history_data.append({
+            "id_consultation": c.id_consultation,
+            # Si tu modelo al final guardó la fecha, la formateamos. Si no, mostramos un texto.
+            "date": c.date.strftime("%d/%m/%Y") if hasattr(c, 'date') and c.date else "Fecha no registrada",
+            "patient_dni": patient.dni if patient else "Desconocido",
+            "diagnosis": c.diagnosis,
+            "location": c.location
+        })
+
+    return jsonify(history_data), 200

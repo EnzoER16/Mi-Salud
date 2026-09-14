@@ -5,6 +5,7 @@ from models.patient import Patient
 from routes.auth_routes import role_required
 from models.doctor import Doctor
 from models.medical_record import MedicalRecord
+from models.medical_consultation import MedicalConsultation
 import qrcode, io, base64
 
 patient_bp = Blueprint("patient", __name__, url_prefix="/api/patient")
@@ -129,3 +130,30 @@ def get_patient_by_qr(patient_id):
         "medical_record": medical_record.to_json() if medical_record else None}
 
     return jsonify(response_data), 200
+
+@patient_bp.route("/history", methods=["GET"])
+@jwt_required()
+@role_required("Paciente")
+def get_patient_history():
+    user_id = get_jwt_identity()
+    
+    # 1. Buscamos el perfil del paciente logueado
+    patient = Patient.query.filter_by(id_user=user_id).first()
+    
+    if not patient:
+        return jsonify({"message": "Perfil de paciente no encontrado."}), 404
+
+    # 2. Buscamos todas sus consultas médicas
+    consultations = MedicalConsultation.query.filter_by(id_patient=patient.id_patient).all()
+    
+    history_data = []
+    for c in consultations:
+        history_data.append({
+            "id_consultation": c.id_consultation,
+            # Nos aseguramos de no romper si el campo de fecha se llama distinto
+            "date": c.date.strftime("%d/%m/%Y") if hasattr(c, 'date') and c.date else "Fecha no registrada",
+            "diagnosis": c.diagnosis,
+            "location": c.location
+        })
+
+    return jsonify(history_data), 200

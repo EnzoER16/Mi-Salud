@@ -6,6 +6,8 @@ import { getProfile } from '../services/api';
 // 1. Importamos el componente para dibujar el QR
 import { QRCodeSVG } from 'qrcode.react';
 import DoctorSearch from '../components/DoctorSearch';
+import DoctorHistory from '../components/DoctorHistory';
+import PatientHistory from '../components/PatientHistory';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
@@ -64,39 +66,42 @@ const Dashboard = () => {
                         
                         {/* COLUMNA IZQUIERDA: Datos Personales */}
                         <Grid item xs={12} md={user?.role === 'Paciente' ? 8 : 12}>
+                            
+                            {/* ===== SECCIÓN EXCLUSIVA DEL PACIENTE ===== */}
                             {user?.role === 'Paciente' && (
                                 <>
                                     <Typography variant="body1"><strong>DNI:</strong> {profileData.dni}</Typography>
+                                    {/* ... los demás datos del paciente ... */}
                                     
-                                    {profileData.health_insurance && (
-                                        <Typography variant="body1">
-                                            <strong>Obra Social:</strong> {profileData.health_insurance} {profileData.plan ? ` (Plan ${profileData.plan})` : ''}
-                                        </Typography>
-                                    )}
-                                    {profileData.member_number && (
-                                        <Typography variant="body1"><strong>N° Afiliado:</strong> {profileData.member_number}</Typography>
-                                    )}
-                                    {profileData.address && (
-                                        <Typography variant="body1"><strong>Dirección:</strong> {profileData.address}</Typography>
-                                    )}
+                                    <Box sx={{ mt: 3 }}>
+                                        <Button variant="outlined" color="primary" onClick={() => navigate('/complete-profile')}>
+                                            Editar Datos Personales
+                                        </Button>
+                                    </Box>
+
+                                    {/* ¡EL HISTORIAL TIENE QUE ESTAR ACÁ ADENTRO! */}
+                                    <Box sx={{ mt: 4 }}>
+                                        <PatientHistory />
+                                    </Box>
                                 </>
                             )}
                             
+                            {/* ===== SECCIÓN EXCLUSIVA DEL MÉDICO ===== */}
                             {user?.role === 'Doctor' && (
                                 <>
                                     <Typography variant="body1"><strong>Especialidad:</strong> {profileData.specialty}</Typography>
                                     <Typography variant="body1"><strong>Matrícula:</strong> {profileData.license_number}</Typography>
                                     
-                                    {/* Agregamos la nueva herramienta de búsqueda */}
+                                    <Box sx={{ mt: 3, mb: 3 }}>
+                                        <Button variant="outlined" color="primary" onClick={() => navigate('/complete-profile')}>
+                                            Editar Datos Personales
+                                        </Button>
+                                    </Box>
+
                                     <DoctorSearch />
+                                    <DoctorHistory />
                                 </>
                             )}
-
-                            <Box sx={{ mt: 3 }}>
-                                <Button variant="outlined" color="primary" onClick={() => navigate('/complete-profile')}>
-                                    Editar Datos Personales
-                                </Button>
-                            </Box>
                         </Grid>
 
                         {/* COLUMNA DERECHA: Código QR (Solo para Pacientes) */}
