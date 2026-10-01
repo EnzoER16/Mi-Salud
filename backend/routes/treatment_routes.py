@@ -158,3 +158,21 @@ def check_intake(intake_id):
         "message": "Toma registrada exitosamente.",
         "compliance_percentage": compliance,
         "intake": intake.to_json()}), 200
+
+@treatment_bp.route("/my-treatments", methods=["GET"])
+@jwt_required()
+@role_required("Paciente")
+def get_my_treatments():
+    user_id = get_jwt_identity()
+    patient = Patient.query.filter_by(id_user=user_id).first()
+    
+    if not patient:
+        return jsonify({"message": "Paciente no encontrado"}), 404
+
+    # Buscamos los tratamientos cruzando la tabla de Consultas
+    treatments = db.session.query(Treatment).join(MedicalConsultation).filter(
+        MedicalConsultation.id_patient == patient.id_patient
+    ).all()
+
+    # El to_json() del modelo ya incluye el "compliance" con el porcentaje
+    return jsonify([t.to_json() for t in treatments]), 200

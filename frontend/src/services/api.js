@@ -176,3 +176,46 @@ export const getPatientHistory = async () => {
     });
     return handleResponse(response);
 };
+
+export const createConsultation = async (patientId, consultationData) => {
+    const token = localStorage.getItem('token');
+    
+    // Apuntamos a la ruta de Flask: POST /api/consultation/<patient_id>
+    const response = await fetch(`${API_URL}/consultation/${patientId}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(consultationData)
+    });
+    
+    return handleResponse(response);
+};
+
+export const getTodaysIntakes = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/intake/today`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const checkIntake = async (intakeId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/intake/${intakeId}/check`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const getMyTreatments = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/treatment/my-treatments`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};

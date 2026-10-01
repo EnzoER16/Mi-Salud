@@ -7,6 +7,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import DoctorSearch from '../components/DoctorSearch';
 import DoctorHistory from '../components/DoctorHistory';
 import PatientHistory from '../components/PatientHistory';
+import PatientIntakes from '../components/PatientIntakes';
+import TreatmentProgress from '../components/TreatmentProgress';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
@@ -14,6 +16,8 @@ const Dashboard = () => {
     
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [profileData, setProfileData] = useState(null);
+
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -84,6 +88,8 @@ const Dashboard = () => {
 
                                 {/* AHORA SEGUNDO: Historial a la derecha (ocupa 8/12 del ancho en PC) */}
                                 <Grid item xs={12} md={8}>
+                                    <TreatmentProgress refreshTrigger={refreshTrigger} />
+                                    <PatientIntakes onIntakeChecked={() => setRefreshTrigger(prev => prev + 1)} />
                                     <PatientHistory />
                                 </Grid>
                             </>
