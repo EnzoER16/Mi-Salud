@@ -9,33 +9,50 @@ from models.medication_intake import MedicationIntake
 from models.medical_consultation import MedicalConsultation
 from routes.auth_routes import role_required
 from datetime import datetime, timedelta, timezone
+from models.notification import Notification
 
 treatment_bp = Blueprint("treatment", __name__, url_prefix="/api/treatment")
+
+def _as_utc(dt):
+    """MySQL devuelve datetimes sin zona; los marcamos como UTC."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 @treatment_bp.route("/<treatment_id>", methods=["PATCH"])
 @jwt_required()
 @role_required("Doctor")
 def edit_treatment(treatment_id):
-    """
-    HU 12: Edición de indicaciones de tratamiento activo.
-    Permite al médico ajustar dosis, frecuencia y duración.
-    """
     user_id = get_jwt_identity()
     doctor = Doctor.query.filter_by(id_user=user_id).first()
-    
     if not doctor:
         return jsonify({"message": "Acceso denegado. Perfil de médico no encontrado."}), 403
 
-    treatment = Treatment.query.get(treatment_id)
+    treatment = db.session.get(Treatment, treatment_id)
     if not treatment:
         return jsonify({"message": "Tratamiento no encontrado."}), 404
 
-    data = request.get_json(silent=True) or {}
-    new_dose = data.get("dose", treatment.dose)
-    new_frequency_hours = int(data.get("frequency_hours", treatment.frequency_hours))
-    new_duration_days = int(data.get("duration_days", treatment.duration_days))
+    consultation = db.session.get(MedicalConsultation, treatment.id_consultation)
+    if consultation.id_doctor != doctor.id_doctor:
+        return jsonify({"message": "Solo el médico que recetó puede editar este tratamiento."}), 403
 
-    # 1. Armar el registro de los cambios para el historial
+    now = datetime.now(timezone.utc)
+    start = _as_utc(consultation.date)
+
+    # Solo se editan tratamientos activos
+    if start + timedelta(days=treatment.duration_days) <= now:
+        return jsonify({"message": "El tratamiento ya finalizó y no puede editarse."}), 400
+
+    data = request.get_json(silent=True) or {}
+    try:
+        new_dose = str(data.get("dose", treatment.dose)).strip()
+        new_frequency_hours = int(data.get("frequency_hours", treatment.frequency_hours))
+        new_duration_days = int(data.get("duration_days", treatment.duration_days))
+    except (TypeError, ValueError):
+        return jsonify({"message": "Frecuencia y duración deben ser números."}), 400
+
+    if not new_dose or new_frequency_hours < 1 or new_duration_days < 1:
+        return jsonify({"message": "Dosis, frecuencia y duración deben ser válidas."}), 400
+
+    # MSP-50: armar el historial de cambios
     changes = []
     if treatment.dose != new_dose:
         changes.append(f"Dosis cambiada de '{treatment.dose}' a '{new_dose}'")
@@ -47,47 +64,41 @@ def edit_treatment(treatment_id):
     if not changes:
         return jsonify({"message": "No se detectaron cambios para actualizar."}), 400
 
-    # Guardar el historial en la base de datos
-    history_record = TreatmentHistory(
+    db.session.add(TreatmentHistory(
         id_treatment=treatment.id_treatment,
-        changes_details=" | ".join(changes))
-    db.session.add(history_record)
+        changes_details=" | ".join(changes)))
 
-    # 2. Actualizar los datos del tratamiento
+    # MSP-49: actualizar parámetros
     treatment.dose = new_dose
     treatment.frequency_hours = new_frequency_hours
     treatment.duration_days = new_duration_days
 
-    # 3. Actualizar los recordatorios (Eliminar pendientes futuros y regenerar)
-    now = datetime.now(timezone.utc)
-    
-    # Eliminamos las tomas pendientes que estaban programadas para el futuro
+    # MSP-51: borrar tomas pendientes futuras y regenerarlas
     db.session.query(MedicationIntake).filter(
         MedicationIntake.id_treatment == treatment.id_treatment,
         MedicationIntake.status == "Pendiente",
         MedicationIntake.scheduled_time > now).delete()
 
-    # Recalculamos la fecha de finalización basada en la consulta original
-    consultation = MedicalConsultation.query.get(treatment.id_consultation)
-    end_time = consultation.date + timedelta(days=new_duration_days)
-
-    # Empezamos a programar las nuevas tomas a partir de ahora + la nueva frecuencia
+    end_time = start + timedelta(days=new_duration_days)
     current_time = now + timedelta(hours=new_frequency_hours)
-
     while current_time < end_time:
-        new_intake = MedicationIntake(
+        db.session.add(MedicationIntake(
             id_treatment=treatment.id_treatment,
-            scheduled_time=current_time)
-        db.session.add(new_intake)
+            scheduled_time=current_time))
         current_time += timedelta(hours=new_frequency_hours)
-
+    
+    patient = db.session.get(Patient, consultation.id_patient)
+    db.session.add(Notification(
+        id_user=patient.id_user,
+        message=f"{doctor.user.username} hizo cambios en tu tratamiento de {treatment.medication}",
+        details=" · ".join(changes)))
+    
     db.session.commit()
 
     return jsonify({
         "message": "Tratamiento y recordatorios actualizados exitosamente.",
         "changes_applied": changes,
         "treatment": treatment.to_json()}), 200
-
 @treatment_bp.route("/<consultation_id>", methods=["POST"])
 @jwt_required()
 @role_required("Doctor")
@@ -176,3 +187,31 @@ def get_my_treatments():
 
     # El to_json() del modelo ya incluye el "compliance" con el porcentaje
     return jsonify([t.to_json() for t in treatments]), 200
+
+@treatment_bp.route("/patient/<patient_id>", methods=["GET"])
+@jwt_required()
+@role_required("Doctor")
+def get_patient_treatments(patient_id):
+    now = datetime.now(timezone.utc)
+    rows = db.session.query(Treatment, MedicalConsultation).join(
+        MedicalConsultation, Treatment.id_consultation == MedicalConsultation.id_consultation
+    ).filter(
+        MedicalConsultation.id_patient == patient_id
+    ).order_by(MedicalConsultation.date.desc()).all()
+
+    result = []
+    for t, c in rows:
+        item = t.to_json()
+        item["is_active"] = _as_utc(c.date) + timedelta(days=t.duration_days) > now
+        result.append(item)
+    return jsonify(result), 200
+
+
+@treatment_bp.route("/<treatment_id>/history", methods=["GET"])
+@jwt_required()
+@role_required("Doctor")
+def get_treatment_history(treatment_id):
+    history = TreatmentHistory.query.filter_by(
+        id_treatment=treatment_id
+    ).order_by(TreatmentHistory.date_modified.desc()).all()
+    return jsonify([h.to_json() for h in history]), 200
