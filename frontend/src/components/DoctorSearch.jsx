@@ -3,6 +3,8 @@ import { Box, Typography, Button, TextField, Paper, Alert, Divider, Grid } from 
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { getPatientByDni, createConsultation } from '../services/api';
 import NewTreatmentForm from './NewTreatmentForm';
+import TreatmentManager from './TreatmentManager';
+
 
 const DoctorSearch = () => {
     const [dniInput, setDniInput] = useState('');
@@ -18,6 +20,7 @@ const DoctorSearch = () => {
     const [startingConsultation, setStartingConsultation] = useState(false);
     const [activeConsultationId, setActiveConsultationId] = useState(null);
     const [consultationSuccess, setConsultationSuccess] = useState('');
+    const [treatmentsVersion, setTreatmentsVersion] = useState(0);
 
     const handleSearch = async (dniToSearch) => {
         if (!dniToSearch) return;
@@ -131,7 +134,7 @@ const DoctorSearch = () => {
                     <Typography variant="body1" sx={{ mb: 3 }}><strong>Antecedentes:</strong> {patientData.medical_record?.antecedents || 'Ninguno'}</Typography>
                     
                     <Divider sx={{ my: 2 }} />
-
+                    <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
                     {/* Paso 1: Botón para iniciar la consulta (Si no hay consulta activa ni formulario abierto) */}
                     {!showConsultationForm && !activeConsultationId && (
                         <Button variant="contained" color="primary" onClick={() => setShowConsultationForm(true)}>
@@ -189,6 +192,7 @@ const DoctorSearch = () => {
                                 onTreatmentAdded={() => {
                                     // Cuando termina de recetar, podemos limpiar todo o mostrar un mensaje
                                     setConsultationSuccess('¡Tratamiento asignado! El paciente ya tiene sus recordatorios.');
+                                    setTreatmentsVersion(v => v + 1);
                                 }} 
                             />
                         </Box>

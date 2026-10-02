@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { AppBar, Box, Toolbar, Typography, Container, IconButton, Menu, MenuItem, Divider, Avatar, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 const Layout = ({ children }) => {
     const { user, logout } = useContext(AuthContext);
@@ -40,7 +41,7 @@ const Layout = ({ children }) => {
                     {user && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             
-                            {/* NUEVO BOTÓN DE INICIO EXPLÍCITO */}
+                            {/* BOTÓN DE INICIO EXPLÍCITO */}
                             <Button 
                                 color="inherit" 
                                 onClick={() => handleNavigate('/dashboard')}
@@ -49,13 +50,17 @@ const Layout = ({ children }) => {
                                 Inicio
                             </Button>
 
+                            {/* CAMPANA DE NOTIFICACIONES (Solo para Pacientes) */}
+                            {user.role === 'Paciente' && <NotificationBell />}
+
+                            {/* MENÚ DESPLEGABLE CON AVATAR */}
                             <IconButton onClick={handleMenuOpen} color="inherit" sx={{ p: 0 }}>
                                 <Avatar sx={{ bgcolor: 'secondary.main', color: '#fff' }}>
                                     {user.username.charAt(0).toUpperCase()}
                                 </Avatar>
                             </IconButton>
-                            
-                            {/* Menú Desplegable */}
+
+                            {/* Contenido del Menú Desplegable */}
                             <Menu
                                 anchorEl={anchorEl}
                                 open={Boolean(anchorEl)}
@@ -65,7 +70,7 @@ const Layout = ({ children }) => {
                             >
                                 <MenuItem disabled>
                                     <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'bold' }}>
-                                        {user.username} {/* ({user.role}) */}
+                                        {user.username}
                                     </Typography>
                                 </MenuItem>
                                 <Divider />

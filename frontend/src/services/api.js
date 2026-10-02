@@ -219,3 +219,60 @@ export const getMyTreatments = async () => {
     });
     return handleResponse(response);
 };
+export const getPatientTreatments = async (patientId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/treatment/patient/${patientId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const updateTreatment = async (treatmentId, changes) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/treatment/${treatmentId}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(changes)
+    });
+    return handleResponse(response);
+};
+
+export const getTreatmentHistory = async (treatmentId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/treatment/${treatmentId}/history`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const getNotifications = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/notifications/my`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const markNotificationRead = async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/notifications/${id}/read`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const markAllNotificationsRead = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/notifications/read-all`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
