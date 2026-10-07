@@ -75,6 +75,7 @@ def get_patient_by_dni(dni):
     # 3. Devolvemos los datos estructurados para React
     return jsonify({
         "id_patient": patient.id_patient,
+        "name": patient.user.username,
         "dni": patient.dni,
         "health_insurance": patient.health_insurance,
         "plan": patient.plan,

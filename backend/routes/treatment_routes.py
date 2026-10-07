@@ -86,26 +86,29 @@ def edit_treatment(treatment_id):
             id_treatment=treatment.id_treatment,
             scheduled_time=current_time))
         current_time += timedelta(hours=new_frequency_hours)
-    
+
     patient = db.session.get(Patient, consultation.id_patient)
     db.session.add(Notification(
         id_user=patient.id_user,
         message=f"{doctor.user.username} hizo cambios en tu tratamiento de {treatment.medication}",
         details=" · ".join(changes)))
-    
+
     db.session.commit()
 
     return jsonify({
         "message": "Tratamiento y recordatorios actualizados exitosamente.",
         "changes_applied": changes,
         "treatment": treatment.to_json()}), 200
+
 @treatment_bp.route("/<consultation_id>", methods=["POST"])
 @jwt_required()
 @role_required("Doctor")
 def add_treatment(consultation_id):
     user_id = get_jwt_identity()
     doctor = Doctor.query.filter_by(id_user=user_id).first()
-    
+    if not doctor:
+        return jsonify({"message": "Acceso denegado. Perfil de médico no encontrado."}), 403
+
     consultation = MedicalConsultation.query.get(consultation_id)
     if not consultation:
         return jsonify({"message": "Consulta no encontrada."}), 404
@@ -130,7 +133,7 @@ def add_treatment(consultation_id):
 
     start_time = datetime.now(timezone.utc)
     total_hours = int(duration_days) * 24
-    
+
     current_time = start_time
     end_time = start_time + timedelta(hours=total_hours)
 
@@ -140,6 +143,13 @@ def add_treatment(consultation_id):
             scheduled_time=current_time)
         db.session.add(new_intake)
         current_time += timedelta(hours=int(frequency_hours))
+
+    # Notificar al paciente del nuevo tratamiento
+    patient = db.session.get(Patient, consultation.id_patient)
+    db.session.add(Notification(
+        id_user=patient.id_user,
+        message=f"{doctor.user.username} te recetó un nuevo tratamiento: {medication}",
+        details=f"{dose} cada {frequency_hours} hs durante {duration_days} días"))
 
     db.session.commit()
 
@@ -154,7 +164,7 @@ def check_intake(intake_id):
     intake = MedicationIntake.query.get(intake_id)
     if not intake:
         return jsonify({"message": "Toma no encontrada"}), 404
-    
+
     if intake.status == "Tomado":
         return jsonify({"message": "Esta medicación ya fue registrada como tomada."}), 400
 
@@ -176,7 +186,7 @@ def check_intake(intake_id):
 def get_my_treatments():
     user_id = get_jwt_identity()
     patient = Patient.query.filter_by(id_user=user_id).first()
-    
+
     if not patient:
         return jsonify({"message": "Paciente no encontrado"}), 404
 
