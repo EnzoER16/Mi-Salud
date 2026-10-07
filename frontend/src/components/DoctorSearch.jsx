@@ -128,7 +128,7 @@ const DoctorSearch = () => {
             {/* Resultados del Paciente */}
             {patientData && (
                 <Paper elevation={3} sx={{ p: 3, backgroundColor: '#fdfdfd', borderLeft: '5px solid #4caf50' }}>
-                    <Typography variant="h6" gutterBottom>Ficha del Paciente (DNI: {patientData.dni})</Typography>
+                    <Typography variant="h6" gutterBottom>Ficha del Paciente: {patientData.name} (DNI: {patientData.dni})</Typography>
                     <Typography variant="body1"><strong>Grupo Sanguíneo:</strong> {patientData.medical_record?.blood_group || 'No especificado'}</Typography>
                     <Typography variant="body1"><strong>Alergias:</strong> {patientData.medical_record?.allergies || 'Ninguna'}</Typography>
                     <Typography variant="body1" sx={{ mb: 3 }}><strong>Antecedentes:</strong> {patientData.medical_record?.antecedents || 'Ninguno'}</Typography>
