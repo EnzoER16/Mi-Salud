@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Alert } from '@mui/material';
+import { Box, Paper, Typography, CircularProgress, Alert } from '@mui/material';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import { getDoctorHistory } from '../services/api';
+import ConsultationsTable from './ConsultationsTable';
+import SectionTitle from './SectionTitle';
+import IconBadge from './IconBadge';
+import { cardSx } from '../theme';
 
-const DoctorHistory = () => {
+// refreshKey: cuando cambia, se vuelve a pedir el historial (sin mostrar el spinner de nuevo)
+const DoctorHistory = ({ refreshKey = 0 }) => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -11,7 +17,8 @@ const DoctorHistory = () => {
         const fetchHistory = async () => {
             try {
                 const data = await getDoctorHistory();
-                setHistory(data);
+                setHistory(data || []);
+                setError('');
             } catch (err) {
                 setError(err.message || 'Error al cargar el historial.');
             } finally {
@@ -19,42 +26,28 @@ const DoctorHistory = () => {
             }
         };
         fetchHistory();
-    }, []);
-
-    if (loading) return <CircularProgress />;
-    if (error) return <Alert severity="error">{error}</Alert>;
+    }, [refreshKey]);
 
     return (
-        <Box sx={{ mt: 4 }}>
-            <Typography variant="h5" color="primary" gutterBottom>
-                Mi Historial de Consultas
-            </Typography>
-            
-            {history.length === 0 ? (
-                <Alert severity="info">Aún no has registrado ninguna consulta.</Alert>
+        <Box>
+            <SectionTitle>Mi Historial de Consultas</SectionTitle>
+
+            {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+            ) : error ? (
+                <Alert severity="error">{error}</Alert>
+            ) : history.length === 0 ? (
+                <Paper elevation={0} sx={{ ...cardSx, p: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <IconBadge tone="blue"><EventNoteOutlinedIcon /></IconBadge>
+                    <Box>
+                        <Typography fontWeight={600}>Todavía no registraste consultas</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Buscá a un paciente por DNI o QR para registrar la primera.
+                        </Typography>
+                    </Box>
+                </Paper>
             ) : (
-                <TableContainer component={Paper} elevation={2}>
-                    <Table>
-                        <TableHead sx={{ backgroundColor: '#f5f5f5' }}>
-                            <TableRow>
-                                <TableCell><strong>Fecha</strong></TableCell>
-                                <TableCell><strong>DNI Paciente</strong></TableCell>
-                                <TableCell><strong>Ubicación</strong></TableCell>
-                                <TableCell><strong>Diagnóstico / Estado</strong></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {history.map((row) => (
-                                <TableRow key={row.id_consultation}>
-                                    <TableCell>{row.date}</TableCell>
-                                    <TableCell>{row.patient_dni}</TableCell>
-                                    <TableCell>{row.location}</TableCell>
-                                    <TableCell>{row.diagnosis}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                <ConsultationsTable rows={history} showPatientDni />
             )}
         </Box>
     );

@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Button, CircularProgress, Alert, List, ListItem, ListItemText, Divider, Chip } from '@mui/material';
+import { Box, Typography, Paper, Button, CircularProgress, Alert, Chip } from '@mui/material';
+import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { getTodaysIntakes, checkIntake } from '../services/api';
+import IconBadge from './IconBadge';
+import { cardSx } from '../theme';
+
+// El backend guarda en UTC sin zona: agregamos 'Z' para mostrar la hora local
+const toLocalTime = (iso) =>
+    new Date(iso.endsWith('Z') ? iso : iso + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const PatientIntakes = ({ onIntakeChecked }) => {
     const [intakes, setIntakes] = useState([]);
@@ -14,7 +22,7 @@ const PatientIntakes = ({ onIntakeChecked }) => {
     const fetchIntakes = async () => {
         try {
             const data = await getTodaysIntakes();
-            setIntakes(data);
+            setIntakes(data || []);
         } catch (err) {
             setError(err.message || 'Error al cargar las tomas de hoy.');
         } finally {
@@ -23,70 +31,85 @@ const PatientIntakes = ({ onIntakeChecked }) => {
     };
 
     const handleCheck = async (intakeId) => {
+        setError('');
         try {
             await checkIntake(intakeId);
-            fetchIntakes(); 
-            // 2. Le avisamos al Dashboard que algo cambió
-            if (onIntakeChecked) onIntakeChecked(); 
+            fetchIntakes();
+            if (onIntakeChecked) onIntakeChecked();
         } catch (err) {
-            alert(err.message || "Error al registrar la toma");
+            setError(err.message || 'Error al registrar la toma');
         }
     };
 
     if (loading) return <CircularProgress sx={{ mt: 2 }} />;
 
-    return (
-        <Paper elevation={2} sx={{ mt: 0, mb: 4, p: 3, borderLeft: '5px solid #00838F' }}>
-            <Typography variant="h6" color="primary" gutterBottom>
-                💊 Mi Medicación para Hoy
-            </Typography>
+    const taken = intakes.filter((i) => i.status === 'Tomado').length;
 
-            {error && <Alert severity="error">{error}</Alert>}
+    return (
+        <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+                <IconBadge tone="teal"><MedicationOutlinedIcon /></IconBadge>
+                <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6">Mi medicación de hoy</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {intakes.length === 0 ? 'Sin tomas programadas' : `${taken} de ${intakes.length} tomas registradas`}
+                    </Typography>
+                </Box>
+            </Box>
+
+            {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
             {intakes.length === 0 ? (
-                <Alert severity="success" sx={{ mt: 2 }}>
+                <Alert severity="success" icon={<CheckCircleRoundedIcon />}>
                     ¡No tenés medicación programada para el día de hoy!
                 </Alert>
             ) : (
-                <List sx={{ width: '100%', bgcolor: 'background.paper', mt: 2 }}>
-                    {intakes.map((intake, index) => {
-                        // Formateamos la hora para que se vea linda (ej: 14:30)
-                        const time = new Date(intake.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                    {intakes.map((intake) => {
                         const isTaken = intake.status === 'Tomado';
-
                         return (
-                            <Box key={intake.id_intake}>
-                                <ListItem 
-                                    sx={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between',
-                                        backgroundColor: isTaken ? '#f1f8e9' : 'transparent',
-                                        borderRadius: 1
+                            <Box
+                                key={intake.id_intake}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    p: 1.5,
+                                    borderRadius: 2.5,
+                                    border: '1px solid',
+                                    borderColor: isTaken ? '#D6EBC3' : 'divider',
+                                    bgcolor: isTaken ? '#F4FAEC' : '#FAFCFD',
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        px: 1.5,
+                                        py: 0.75,
+                                        borderRadius: 2,
+                                        bgcolor: '#fff',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        fontWeight: 700,
+                                        minWidth: 64,
+                                        textAlign: 'center',
                                     }}
                                 >
-                                    <ListItemText 
-                                        primary={`Hora: ${time}`} 
-                                        secondary={isTaken ? 'Ya tomaste esta dosis' : 'Pendiente de tomar'}
-                                    />
-                                    
-                                    {isTaken ? (
-                                        <Chip label="Tomado" color="success" variant="filled" />
-                                    ) : (
-                                        <Button 
-                                            variant="contained" 
-                                            color="primary" 
-                                            size="small"
-                                            onClick={() => handleCheck(intake.id_intake)}
-                                        >
-                                            Marcar Tomado
-                                        </Button>
-                                    )}
-                                </ListItem>
-                                {index < intakes.length - 1 && <Divider />}
+                                    {toLocalTime(intake.scheduled_time)}
+                                </Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                                    {isTaken ? 'Ya tomaste esta dosis' : 'Pendiente de tomar'}
+                                </Typography>
+                                {isTaken ? (
+                                    <Chip label="Tomado" color="success" size="small" icon={<CheckCircleRoundedIcon />} />
+                                ) : (
+                                    <Button variant="contained" size="small" onClick={() => handleCheck(intake.id_intake)}>
+                                        Marcar tomado
+                                    </Button>
+                                )}
                             </Box>
                         );
                     })}
-                </List>
+                </Box>
             )}
         </Paper>
     );

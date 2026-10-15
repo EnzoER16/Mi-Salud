@@ -2,20 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-
-// Importaciones de Material UI
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
-
-const theme = createTheme({
-  palette: {
-    primary: { main: '#00838F' },
-    secondary: { main: '#4DB6AC' },
-    background: { default: '#f5f5f5' }
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  }
-})
+import { CssBaseline, ThemeProvider } from '@mui/material'
+import theme from './theme'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 

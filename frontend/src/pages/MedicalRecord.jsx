@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Box, Paper, TextField, Button, Typography, Alert, MenuItem, CircularProgress } from '@mui/material';
+import { Box, Paper, TextField, Button, Alert, MenuItem, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { getMedicalRecord, saveMedicalRecord } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import { cardSx } from '../theme';
 
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Desconocido"];
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Desconocido'];
 
 const MedicalRecord = () => {
     const navigate = useNavigate();
-    
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    
+
     const [bloodGroup, setBloodGroup] = useState('');
     const [allergies, setAllergies] = useState('');
     const [antecedents, setAntecedents] = useState('');
@@ -27,7 +29,7 @@ const MedicalRecord = () => {
                 }
             } catch (err) {
                 console.error(err);
-                setError("No se pudo cargar la información previa.");
+                setError('No se pudo cargar la información previa.');
             } finally {
                 setLoading(false);
             }
@@ -58,46 +60,49 @@ const MedicalRecord = () => {
     }
 
     return (
-        <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
-            <Typography variant="h5" color="primary" gutterBottom fontWeight="bold">
-                Mi Ficha Médica
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                Mantené actualizada tu información clínica. Esto será vital para los médicos que te atiendan.
-            </Typography>
+        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
+            <PageHeader
+                eyebrow="Mi cuenta"
+                title="Mi ficha médica"
+                subtitle="Mantené actualizada tu información clínica. Es clave para los médicos que te atiendan."
+            />
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 4 } }}>
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-            <form onSubmit={handleSubmit}>
-                <TextField select fullWidth label="Grupo Sanguíneo" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} margin="normal" required>
-                    {BLOOD_GROUPS.map((option) => (
-                        <MenuItem key={option} value={option}>{option}</MenuItem>
-                    ))}
-                </TextField>
+                <form onSubmit={handleSubmit}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <TextField select fullWidth required label="Grupo sanguíneo" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}>
+                            {BLOOD_GROUPS.map((option) => (
+                                <MenuItem key={option} value={option}>{option}</MenuItem>
+                            ))}
+                        </TextField>
 
-                <TextField fullWidth label="Alergias Conocidas" placeholder="Ej: Penicilina, Ibuprofeno, Maní (Dejar en blanco si no tiene)" multiline rows={3} margin="normal" value={allergies} onChange={(e) => setAllergies(e.target.value)} />
+                        <TextField
+                            fullWidth multiline rows={3} label="Alergias conocidas"
+                            placeholder="Ej: Penicilina, Ibuprofeno, Maní (dejar en blanco si no tiene)"
+                            value={allergies} onChange={(e) => setAllergies(e.target.value)}
+                        />
 
-                <TextField fullWidth label="Antecedentes Médicos / Enfermedades Crónicas" placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2" multiline rows={4} margin="normal" value={antecedents} onChange={(e) => setAntecedents(e.target.value)} />
-                
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                    <Button 
-                        variant="outlined" 
-                        color="inherit" 
-                        onClick={() => navigate('/dashboard')}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button 
-                        type="submit" 
-                        variant="contained" 
-                        color="primary"
-                    >
-                        Guardar Ficha
-                    </Button>
-                </Box>
-            </form>
-        </Paper>
+                        <TextField
+                            fullWidth multiline rows={4} label="Antecedentes médicos / enfermedades crónicas"
+                            placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2"
+                            value={antecedents} onChange={(e) => setAntecedents(e.target.value)}
+                        />
+                    </Box>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 4 }}>
+                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit" variant="contained">
+                            Guardar ficha
+                        </Button>
+                    </Box>
+                </form>
+            </Paper>
+        </Box>
     );
 };
 

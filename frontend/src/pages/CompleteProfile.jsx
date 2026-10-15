@@ -3,11 +3,13 @@ import { Box, Paper, TextField, Button, Typography, Alert, CircularProgress } fr
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { createProfile, getProfile } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import { cardSx } from '../theme';
 
 const CompleteProfile = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
-    
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -26,8 +28,7 @@ const CompleteProfile = () => {
         const fetchExistingProfile = async () => {
             try {
                 const existingData = await getProfile(user.role);
-                
-                // Si el perfil ya existe, precargamos los inputs
+
                 if (existingData) {
                     if (user.role === 'Paciente') {
                         setDni(existingData.dni || '');
@@ -41,9 +42,7 @@ const CompleteProfile = () => {
                     }
                 }
             } catch (err) {
-                // Si hay error (ej: no encontró el perfil), no hacemos nada malo,
-                // simplemente dejamos los inputs en blanco para que los llene por primera vez.
-                console.log("No se encontró perfil previo, se creará uno nuevo.");
+                console.log('No se encontró perfil previo, se creará uno nuevo.');
             } finally {
                 setLoading(false);
             }
@@ -60,14 +59,13 @@ const CompleteProfile = () => {
         setSuccess('');
 
         try {
-            const profileData = user.role === 'Paciente' 
+            const profileData = user.role === 'Paciente'
                 ? { dni, health_insurance: healthInsurance, plan, member_number: memberNumber, address }
                 : { specialty, license_number: licenseNumber };
 
-            // Aquí el backend debe encargarse de crear o actualizar según corresponda
             await createProfile(profileData, user.role);
             setSuccess('Perfil guardado con éxito. Redirigiendo...');
-            
+
             setTimeout(() => navigate('/dashboard'), 1500);
         } catch (err) {
             setError(err.message);
@@ -82,68 +80,54 @@ const CompleteProfile = () => {
         );
     }
 
+    const isPatient = user?.role === 'Paciente';
+
     return (
-        <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
-            <Typography variant="h5" color="primary" gutterBottom fontWeight="bold">
-                Mis Datos Personales
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                Revisa y mantén actualizada la información de tu cuenta como {user?.role}.
-            </Typography>
+        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
+            <PageHeader
+                eyebrow="Mi cuenta"
+                title={isPatient ? 'Mis datos personales' : 'Mis datos profesionales'}
+                subtitle="Revisá y mantené actualizada la información de tu cuenta."
+            />
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 4 } }}>
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-            <form onSubmit={handleSubmit}>
-                {user?.role === 'Paciente' ? (
-                    <>
-                        {/* Campo DNI con validación estricta de números y máximo de 8 caracteres */}
-                        <TextField 
-                            fullWidth 
-                            label="DNI" 
-                            variant="outlined" 
-                            margin="normal" 
-                            required 
-                            value={dni} 
-                            onChange={(e) => {
-                                // Esta línea elimina cualquier cosa que NO sea un número (0-9)
-                                const soloNumeros = e.target.value.replace(/[^0-9]/g, '');
-                                setDni(soloNumeros);
-                            }} 
-                            inputProps={{ maxLength: 8 }} // Limita la cantidad máxima a 8 números
-                        />
-                            
-                            {/* Los demás campos ya NO tienen la etiqueta 'required' */}
-                            <TextField fullWidth label="Obra Social" variant="outlined" margin="normal" value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />
-                            <TextField fullWidth label="Plan" variant="outlined" margin="normal" value={plan} onChange={(e) => setPlan(e.target.value)} />
-                            <TextField fullWidth label="Número de Afiliado" variant="outlined" margin="normal" value={memberNumber} onChange={(e) => setMemberNumber(e.target.value)} />
-                            <TextField fullWidth label="Dirección" variant="outlined" margin="normal" value={address} onChange={(e) => setAddress(e.target.value)} />
-                        </>
-                ) : (
-                    <>
-                        <TextField fullWidth label="Especialidad" variant="outlined" margin="normal" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
-                        <TextField fullWidth label="Número de Matrícula" variant="outlined" margin="normal" required value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
-                    </>
-                )}
-                
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                    <Button 
-                        variant="outlined" 
-                        color="inherit" 
-                        onClick={() => navigate('/dashboard')}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button 
-                        type="submit" 
-                        variant="contained" 
-                        color="primary"
-                    >
-                        Guardar Cambios
-                    </Button>
-                </Box>
-            </form>
-        </Paper>
+                <form onSubmit={handleSubmit}>
+                    {isPatient ? (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+                            <TextField
+                                label="DNI"
+                                required
+                                value={dni}
+                                onChange={(e) => setDni(e.target.value.replace(/[^0-9]/g, ''))}
+                                slotProps={{ htmlInput: { maxLength: 8, inputMode: 'numeric' } }}
+                                sx={{ gridColumn: { sm: '1 / -1' } }}
+                            />
+                            <TextField label="Obra social" value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />
+                            <TextField label="Plan" value={plan} onChange={(e) => setPlan(e.target.value)} />
+                            <TextField label="Número de afiliado" value={memberNumber} onChange={(e) => setMemberNumber(e.target.value)} />
+                            <TextField label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} />
+                        </Box>
+                    ) : (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+                            <TextField label="Especialidad" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+                            <TextField label="Número de matrícula" required value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+                        </Box>
+                    )}
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 4 }}>
+                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit" variant="contained">
+                            Guardar cambios
+                        </Button>
+                    </Box>
+                </form>
+            </Paper>
+        </Box>
     );
 };
 

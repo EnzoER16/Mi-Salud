@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
-import { Box, Typography, Button, Paper, CircularProgress, Alert, Grid } from '@mui/material';
+import { Box, Typography, Button, Paper, CircularProgress, Chip } from '@mui/material';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../services/api';
@@ -9,15 +10,19 @@ import DoctorHistory from '../components/DoctorHistory';
 import PatientHistory from '../components/PatientHistory';
 import PatientIntakes from '../components/PatientIntakes';
 import TreatmentProgress from '../components/TreatmentProgress';
+import PageHeader from '../components/PageHeader';
+import IconBadge from '../components/IconBadge';
+import { colors, cardSx, gradient } from '../theme';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
-    
+
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [profileData, setProfileData] = useState(null);
 
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);   // paciente: progreso
+    const [historyVersion, setHistoryVersion] = useState(0);   // médico: historial
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -25,7 +30,7 @@ const Dashboard = () => {
                 const data = await getProfile(user.role);
                 setProfileData(data);
             } catch (error) {
-                console.error("Error validando el perfil:", error);
+                console.error('Error validando el perfil:', error);
             } finally {
                 setLoadingProfile(false);
             }
@@ -45,68 +50,96 @@ const Dashboard = () => {
     }
 
     return (
-        <Paper elevation={2} sx={{ p: 4, borderRadius: 2, background: 'linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%)' }}>
-            <Typography variant="h4" color="primary" gutterBottom>
-                Bienvenido, {user?.username}
-            </Typography>
-            {/* <Typography variant="subtitle1" color="textSecondary" sx={{ mb: 2, fontWeight: 'bold' }}>
-                Panel de {user?.role}
-            </Typography> */}
+        <Box>
+            <PageHeader eyebrow="Inicio" title={`Bienvenido/a, ${user?.username}`} />
 
-            <Box sx={{ p: 2, backgroundColor: '#f0f4f8', borderRadius: 1 }}>
-                {!profileData ? (
-                    <>
-                        <Alert severity="warning" sx={{ mb: 2 }}>
-                            Aún no has completado tu perfil. Por favor, complétalo para habilitar todas las funciones.
-                        </Alert>
-                        <Button variant="contained" color="primary" onClick={() => navigate('/complete-profile')}>
-                            Completar mi Perfil
-                        </Button>
-                    </>
-                ) : (
-                    <Grid container spacing={3} alignItems="flex-start">
-                        
-                        {/* ===== VISTA DEL PACIENTE ===== */}
-                        {user?.role === 'Paciente' && (
-                            <>
-                                {/* AHORA PRIMERO: Credencial QR a la izquierda (ocupa 4/12 del ancho en PC) */}
-                                <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Paper elevation={3} sx={{ p: 3, backgroundColor: '#fff', textAlign: 'center', borderRadius: 2, width: '100%' }}>
-                                        <QRCodeSVG 
-                                            value={profileData.dni} 
-                                            size={160} 
-                                            level="H" 
-                                        />
-                                        <Typography variant="subtitle2" display="block" sx={{ mt: 2, fontWeight: 'bold', color: 'text.secondary' }}>
-                                            DNI: {profileData.dni}
-                                        </Typography>
-                                        <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
-                                            Presentá este código al médico
-                                        </Typography>
-                                    </Paper>
-                                </Grid>
+            {/* ===== Perfil incompleto ===== */}
+            {!profileData && (
+                <Paper
+                    elevation={0}
+                    sx={{ ...cardSx, p: { xs: 3, sm: 4 }, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}
+                >
+                    <IconBadge tone="amber" size={52}><ManageAccountsOutlinedIcon /></IconBadge>
+                    <Box sx={{ flex: 1, minWidth: 240 }}>
+                        <Typography variant="h6">Completá tu perfil</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Necesitamos unos datos más para habilitar todas las funciones de la plataforma.
+                        </Typography>
+                    </Box>
+                    <Button variant="contained" onClick={() => navigate('/complete-profile')}>
+                        Completar mi perfil
+                    </Button>
+                </Paper>
+            )}
 
-                                {/* AHORA SEGUNDO: Historial a la derecha (ocupa 8/12 del ancho en PC) */}
-                                <Grid item xs={12} md={8}>
-                                    <TreatmentProgress refreshTrigger={refreshTrigger} />
-                                    <PatientIntakes onIntakeChecked={() => setRefreshTrigger(prev => prev + 1)} />
-                                    <PatientHistory />
-                                </Grid>
-                            </>
-                        )}
-                        
-                        {/* ===== VISTA DEL MÉDICO ===== */}
-                        {user?.role === 'Doctor' && (
-                            <Grid item xs={12}>
-                                <DoctorSearch />
-                                <DoctorHistory />
-                            </Grid>
-                        )}
-                        
-                    </Grid>
-                )}
-            </Box>
-        </Paper>
+            {/* ===== Vista del médico ===== */}
+            {profileData && user?.role === 'Doctor' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <DoctorSearch onConsultationCreated={() => setHistoryVersion((v) => v + 1)} />
+                    <DoctorHistory refreshKey={historyVersion} />
+                </Box>
+            )}
+
+            {/* ===== Vista del paciente ===== */}
+            {profileData && user?.role === 'Paciente' && (
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', md: '300px minmax(0, 1fr)' },
+                        gap: 3,
+                        alignItems: 'start',
+                    }}
+                >
+                    {/* Credencial QR */}
+                    <Paper
+                        elevation={0}
+                        sx={{ ...cardSx, overflow: 'hidden', textAlign: 'center', position: { md: 'sticky' }, top: { md: 110 } }}
+                    >
+                        <Box sx={{ height: 6, background: gradient }} />
+                        <Box sx={{ p: 3 }}>
+                            <Typography variant="overline" sx={{ color: colors.teal, fontWeight: 700, letterSpacing: '0.08em' }}>
+                                Mi credencial de salud
+                            </Typography>
+                            <Box
+                                sx={{
+                                    display: 'inline-flex',
+                                    p: 2,
+                                    my: 1.5,
+                                    borderRadius: 3,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    bgcolor: '#fff',
+                                }}
+                            >
+                                <QRCodeSVG value={profileData.dni} size={160} level="H" />
+                            </Box>
+                            <Typography fontWeight={700}>DNI: {profileData.dni}</Typography>
+                            
+                            {/* Contenedor en columna para forzar que vayan uno debajo del otro */}
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 1 }}>
+                                {profileData.health_insurance && (
+                                    <Chip
+                                        size="small"
+                                        label={`${profileData.health_insurance}${profileData.plan ? ` · ${profileData.plan}` : ''}`}
+                                        sx={{ bgcolor: 'primary.light', color: 'primary.main' }}
+                                    />
+                                )}
+                                <Typography variant="caption" color="text.secondary">
+                                    Presentá este código al médico
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Paper>
+
+                    {/* Contenido */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                        <TreatmentProgress refreshTrigger={refreshTrigger} />
+                        <PatientIntakes onIntakeChecked={() => setRefreshTrigger((prev) => prev + 1)} />
+                        <PatientHistory />
+                    </Box>
+                </Box>
+            )}
+        </Box>
     );
 };
 

@@ -1,7 +1,18 @@
 import { useState } from 'react';
-import { Box, Paper, TextField, Button, Typography, Alert, MenuItem } from '@mui/material';
+import { Box, TextField, Button, Typography, Alert, InputAdornment, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
+import MedicalServicesOutlinedIcon from '@mui/icons-material/MedicalServicesOutlined';
 import { Link, useNavigate } from 'react-router-dom';
 import { registerUser } from '../services/api';
+import AuthShell from '../components/AuthShell';
+import { colors } from '../theme';
+
+const adornment = (icon) => ({
+    input: { startAdornment: <InputAdornment position="start">{icon}</InputAdornment> },
+});
 
 const Register = () => {
     const [username, setUsername] = useState('');
@@ -9,102 +20,85 @@ const Register = () => {
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('Paciente');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
 
         try {
             await registerUser({ username, email, password, role });
-            // Si el registro es exitoso, lo mandamos al login
             navigate('/login');
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <Box 
-            sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)'
-            }}
-        >
-            <Paper elevation={3} sx={{ p: 4, width: '100%', maxWidth: 400, borderRadius: 2 }}>
-                <Typography variant="h5" align="center" gutterBottom fontWeight="bold" color="primary">
-                    MiSalud+
-                </Typography>
-                <Typography variant="body2" align="center" color="textSecondary" sx={{ mb: 3 }}>
-                    Crea tu cuenta
-                </Typography>
-
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-                <form onSubmit={handleSubmit}>
-                    <TextField
-                        fullWidth
-                        label="Nombre de Usuario"
-                        variant="outlined"
-                        margin="normal"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                    <TextField
-                        fullWidth
-                        label="Correo Electrónico"
-                        type="email"
-                        variant="outlined"
-                        margin="normal"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                    <TextField
-                        fullWidth
-                        label="Contraseña"
-                        type="password"
-                        variant="outlined"
-                        margin="normal"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                    <TextField
-                        select
-                        fullWidth
-                        label="Rol"
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                        margin="normal"
-                    >
-                        <MenuItem value="Paciente">Paciente</MenuItem>
-                        <MenuItem value="Doctor">Doctor/a</MenuItem>
-                    </TextField>
-                    
-                    <Button 
-                        type="submit" 
-                        fullWidth 
-                        variant="contained" 
-                        color="primary" 
-                        sx={{ mt: 3, mb: 2, py: 1.5 }}
-                    >
-                        Registrarse
-                    </Button>
-                </form>
-
-                <Typography align="center" variant="body2">
-                    ¿Ya tienes una cuenta?{' '}
-                    <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2' }}>
-                        Inicia sesión aquí
+        <AuthShell
+            title="Creá tu cuenta"
+            subtitle="Sumate a MiSalud+ en un par de minutos."
+            footer={
+                <Typography variant="body2" color="text.secondary">
+                    ¿Ya tenés una cuenta?{' '}
+                    <Link to="/login" style={{ color: colors.teal, fontWeight: 600, textDecoration: 'none' }}>
+                        Iniciá sesión
                     </Link>
                 </Typography>
-            </Paper>
-        </Box>
+            }
+        >
+            {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+
+            <form onSubmit={handleSubmit}>
+                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mt: 1, mb: 0.75 }}>
+                    Soy...
+                </Typography>
+                <ToggleButtonGroup
+                    exclusive
+                    fullWidth
+                    color="primary"
+                    value={role}
+                    onChange={(e, value) => value && setRole(value)}
+                >
+                    <ToggleButton value="Paciente" sx={{ gap: 1, textTransform: 'none', fontWeight: 600, py: 1.1 }}>
+                        <HealthAndSafetyOutlinedIcon fontSize="small" /> Paciente
+                    </ToggleButton>
+                    <ToggleButton value="Doctor" sx={{ gap: 1, textTransform: 'none', fontWeight: 600, py: 1.1 }}>
+                        <MedicalServicesOutlinedIcon fontSize="small" /> Médico/a
+                    </ToggleButton>
+                </ToggleButtonGroup>
+
+                <TextField
+                    fullWidth required label="Nombre y apellido" margin="normal"
+                    value={username} onChange={(e) => setUsername(e.target.value)}
+                    slotProps={adornment(<PersonOutlineIcon fontSize="small" />)}
+                />
+                <TextField
+                    fullWidth required label="Correo electrónico" type="email" margin="normal"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    slotProps={adornment(<EmailOutlinedIcon fontSize="small" />)}
+                />
+                <TextField
+                    fullWidth required label="Contraseña" type="password" margin="normal"
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    slotProps={adornment(<LockOutlinedIcon fontSize="small" />)}
+                />
+
+                <Button type="submit" fullWidth variant="contained" size="large" disabled={loading} sx={{ mt: 2, py: 1.4 }}>
+                    {loading ? 'Creando cuenta...' : 'Registrarme'}
+                </Button>
+            </form>
+
+            <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                    Tu nombre es el que van a ver los médicos y pacientes en la plataforma.
+                </Typography>
+            </Box>
+        </AuthShell>
     );
 };
 

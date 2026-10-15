@@ -1,42 +1,46 @@
 import { useState, useContext } from 'react';
-import { Box, Paper, TextField, Button, Typography, Alert } from '@mui/material';
+import { Box, TextField, Button, Typography, Alert, InputAdornment, IconButton, Divider } from '@mui/material';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { loginUser, loginWithGoogle } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { GoogleLogin } from '@react-oauth/google'; // Importamos el botón
+import AuthShell from '../components/AuthShell';
+import { colors } from '../theme';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
-    
+    const [loading, setLoading] = useState(false);
+
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
 
-    // Tu función handleSubmit normal (queda igual)
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
         try {
             const data = await loginUser({ email, password });
             login(data.user, data.token);
             navigate('/dashboard');
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Nueva función para manejar el éxito de Google
     const handleGoogleSuccess = async (credentialResponse) => {
         setError('');
         try {
-            // Le pasamos el token de Google a nuestra API
             const data = await loginWithGoogle(credentialResponse.credential);
-            
-            // Iniciamos sesión en nuestro contexto global
             login(data.user, data.token);
-            
-            // Redirigimos al dashboard
             navigate('/dashboard');
         } catch (err) {
             setError(err.message);
@@ -44,56 +48,82 @@ const Login = () => {
     };
 
     return (
-        <Box 
-            sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%)'
-            }}
-        >
-            <Paper elevation={3} sx={{ p: 4, width: '100%', maxWidth: 400, borderRadius: 2 }}>
-                <Typography variant="h5" align="center" gutterBottom fontWeight="bold" color="primary">
-                    MiSalud+
-                </Typography>
-                <Typography variant="body2" align="center" color="textSecondary" sx={{ mb: 3 }}>
-                    Ingresa a tu cuenta
-                </Typography>
-
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-                <form onSubmit={handleSubmit}>
-                    {/* Tus inputs de email y password... */}
-                    <TextField fullWidth label="Correo Electrónico" type="email" variant="outlined" margin="normal" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                    <TextField fullWidth label="Contraseña" type="password" variant="outlined" margin="normal" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                    
-                    <Button type="submit" fullWidth variant="contained" color="primary" sx={{ mt: 3, mb: 2, py: 1.5 }}>
-                        Iniciar Sesión
-                    </Button>
-                </form>
-
-                {/* Contenedor centrado para el botón de Google */}
-                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                    <GoogleLogin
-                        onSuccess={handleGoogleSuccess}
-                        onError={() => {
-                            setError('El inicio de sesión con Google falló.');
-                        }}
-                        theme="outline"
-                        text="continue_with"
-                        width="100%"
-                    />
-                </Box>
-
-                <Typography align="center" variant="body2" sx={{ mt: 2 }}>
-                    ¿No tienes una cuenta?{' '}
-                    <Link to="/register" style={{ textDecoration: 'none', color: '#1976d2' }}>
-                        Regístrate aquí
+        <AuthShell
+            title="Ingresá a tu cuenta"
+            subtitle="Accedé a tu historial, tratamientos y recordatorios."
+            footer={
+                <Typography variant="body2" color="text.secondary">
+                    ¿No tenés una cuenta?{' '}
+                    <Link to="/register" style={{ color: colors.teal, fontWeight: 600, textDecoration: 'none' }}>
+                        Registrate acá
                     </Link>
                 </Typography>
-            </Paper>
-        </Box>
+            }
+        >
+            {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+
+            <form onSubmit={handleSubmit}>
+                <TextField
+                    fullWidth
+                    required
+                    label="Correo electrónico"
+                    type="email"
+                    margin="normal"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start"><EmailOutlinedIcon fontSize="small" /></InputAdornment>
+                            ),
+                        },
+                    }}
+                />
+                <TextField
+                    fullWidth
+                    required
+                    label="Contraseña"
+                    type={showPassword ? 'text' : 'password'}
+                    margin="normal"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start"><LockOutlinedIcon fontSize="small" /></InputAdornment>
+                            ),
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        edge="end"
+                                        aria-label="Mostrar u ocultar contraseña"
+                                        onClick={() => setShowPassword((v) => !v)}
+                                    >
+                                        {showPassword ? <VisibilityOffOutlinedIcon fontSize="small" /> : <VisibilityOutlinedIcon fontSize="small" />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        },
+                    }}
+                />
+
+                <Button type="submit" fullWidth variant="contained" size="large" disabled={loading} sx={{ mt: 2, py: 1.4 }}>
+                    {loading ? 'Ingresando...' : 'Iniciar sesión'}
+                </Button>
+            </form>
+
+            <Divider sx={{ my: 3, color: 'text.secondary', fontSize: '0.8rem' }}>o continuá con</Divider>
+
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError('El inicio de sesión con Google falló.')}
+                    theme="outline"
+                    text="continue_with"
+                    width="300"
+                />
+            </Box>
+        </AuthShell>
     );
 };
 

@@ -4,6 +4,8 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions, TextField,
     Collapse, List, ListItem, ListItemText
 } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import { getPatientTreatments, updateTreatment, getTreatmentHistory } from '../services/api';
 
 const TreatmentManager = ({ patientId, refreshKey }) => {
@@ -84,19 +86,19 @@ const TreatmentManager = ({ patientId, refreshKey }) => {
     if (treatments.length === 0) return null;
 
     return (
-        <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" color="primary" fontWeight="bold" gutterBottom>
+        <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                 Tratamientos del paciente
             </Typography>
 
             {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-            <Stack spacing={2}>
+            <Stack spacing={1.5}>
                 {treatments.map((t) => (
-                    <Paper key={t.id_treatment} variant="outlined" sx={{ p: 2 }}>
+                    <Paper key={t.id_treatment} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                             <Box>
-                                <Typography fontWeight="bold">{t.medication} - {t.dose}</Typography>
+                                <Typography fontWeight="bold">{t.medication} · {t.dose}</Typography>
                                 <Typography variant="body2" color="text.secondary">
                                     Cada {t.frequency_hours} hs durante {t.duration_days} días · Cumplimiento: {t.compliance}%
                                 </Typography>
@@ -108,13 +110,17 @@ const TreatmentManager = ({ patientId, refreshKey }) => {
                             />
                         </Box>
 
-                        <Box sx={{ mt: 1.5, display: 'flex', gap: 1 }}>
+                        <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                             {t.is_active && (
-                                <Button size="small" variant="contained" onClick={() => openEdit(t)}>
+                                <Button size="small" variant="contained" startIcon={<EditOutlinedIcon />} onClick={() => openEdit(t)}>
                                     Editar
                                 </Button>
                             )}
-                            <Button size="small" variant="text" onClick={() => toggleHistory(t.id_treatment)}>
+                            <Button
+                                size="small" variant="text" startIcon={<HistoryRoundedIcon />}
+                                onClick={() => toggleHistory(t.id_treatment)}
+                                sx={{ letterSpacing: 0, textTransform: 'none' }}
+                            >
                                 {historyOpenId === t.id_treatment ? 'Ocultar historial' : 'Ver historial de cambios'}
                             </Button>
                         </Box>
@@ -149,14 +155,14 @@ const TreatmentManager = ({ patientId, refreshKey }) => {
                             onChange={(e) => setForm({ ...form, dose: e.target.value })} />
                         <TextField label="Frecuencia (horas)" type="number" value={form.frequency_hours}
                             onChange={(e) => setForm({ ...form, frequency_hours: e.target.value })}
-                            inputProps={{ min: 1 }} />
+                            slotProps={{ htmlInput: { min: 1 } }} />
                         <TextField label="Duración (días)" type="number" value={form.duration_days}
                             onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
-                            inputProps={{ min: 1 }} />
+                            slotProps={{ htmlInput: { min: 1 } }} />
                     </Stack>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditing(null)}>Cancelar</Button>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button color="inherit" onClick={() => setEditing(null)}>Cancelar</Button>
                     <Button variant="contained" onClick={handleSave} disabled={saving}>
                         {saving ? 'Guardando...' : 'Guardar cambios'}
                     </Button>

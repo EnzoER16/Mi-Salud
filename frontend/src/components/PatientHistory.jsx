@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Alert } from '@mui/material';
+import { Box, Paper, Typography, CircularProgress, Alert } from '@mui/material';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import { getPatientHistory } from '../services/api';
+import ConsultationsTable from './ConsultationsTable';
+import SectionTitle from './SectionTitle';
+import IconBadge from './IconBadge';
+import { cardSx } from '../theme';
 
 const PatientHistory = () => {
     const [history, setHistory] = useState([]);
@@ -11,7 +16,7 @@ const PatientHistory = () => {
         const fetchHistory = async () => {
             try {
                 const data = await getPatientHistory();
-                setHistory(data);
+                setHistory(data || []);
             } catch (err) {
                 setError(err.message || 'Error al cargar el historial.');
             } finally {
@@ -21,38 +26,23 @@ const PatientHistory = () => {
         fetchHistory();
     }, []);
 
-    if (loading) return <CircularProgress sx={{ mt: 2 }} />;
-    if (error) return <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>;
-
     return (
-        <Box sx={{ mt: 4, width: '100%' }}>
-            <Typography variant="h6" color="primary" gutterBottom>
-                Mi Historial Médico
-            </Typography>
-            
-            {history.length === 0 ? (
-                <Alert severity="info">Aún no tenés consultas médicas registradas en el sistema.</Alert>
+        <Box>
+            <SectionTitle>Mi Historial Médico</SectionTitle>
+
+            {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+            ) : error ? (
+                <Alert severity="error">{error}</Alert>
+            ) : history.length === 0 ? (
+                <Paper elevation={0} sx={{ ...cardSx, p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <IconBadge tone="blue"><EventNoteOutlinedIcon /></IconBadge>
+                    <Typography variant="body2" color="text.secondary">
+                        Aún no tenés consultas médicas registradas en el sistema.
+                    </Typography>
+                </Paper>
             ) : (
-                <TableContainer component={Paper} elevation={1}>
-                    <Table size="small">
-                        <TableHead sx={{ backgroundColor: '#e3f2fd' }}>
-                            <TableRow>
-                                <TableCell><strong>Fecha</strong></TableCell>
-                                <TableCell><strong>Ubicación</strong></TableCell>
-                                <TableCell><strong>Diagnóstico</strong></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {history.map((row) => (
-                                <TableRow key={row.id_consultation}>
-                                    <TableCell>{row.date}</TableCell>
-                                    <TableCell>{row.location}</TableCell>
-                                    <TableCell>{row.diagnosis}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                <ConsultationsTable rows={history} />
             )}
         </Box>
     );
