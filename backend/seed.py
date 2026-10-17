@@ -86,6 +86,7 @@ from models.medical_record import MedicalRecord
 from models.medical_consultation import MedicalConsultation
 from models.treatment import Treatment
 from models.medication_intake import MedicationIntake
+from models.medication import seed_medications
 from datetime import datetime, timedelta, timezone
 
 app = create_app()
@@ -93,6 +94,7 @@ app = create_app()
 with app.app_context():
     db.drop_all()  
     db.create_all() 
+    seed_medications()  # recarga el catálogo de medicamentos
 
     # 1. Usuarios
     doc_user = User(username="Juan Ruiz", email="juan@gmail.com", password="12345", role="Doctor")

@@ -10,8 +10,10 @@ from routes.medical_record_routes import record_bp
 from routes.medical_consultation_routes import consultation_bp
 from routes.treatment_routes import treatment_bp
 from routes.medication_intake_routes import intake_bp
-from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification
+from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification, medication
+from models.medication import seed_medications
 from routes.notification_routes import notification_bp
+from routes.medication_routes import medication_bp
 
 def create_app():
     app = Flask(__name__)
@@ -29,9 +31,11 @@ def create_app():
     app.register_blueprint(treatment_bp)
     app.register_blueprint(intake_bp)
     app.register_blueprint(notification_bp)
+    app.register_blueprint(medication_bp)
     
     with app.app_context():
         db.create_all()
+        seed_medications()  # carga el catálogo de medicamentos (solo agrega los que faltan)
 
     return app
 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Box, TextField, Button, Typography, Alert } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, TextField, Button, Typography, Alert, Autocomplete } from '@mui/material';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
+import { getMedications } from '../services/api';
 import IconBadge from './IconBadge';
 
 // Recibe el ID de la consulta actual por props
@@ -10,9 +11,25 @@ const NewTreatmentForm = ({ consultationId, onTreatmentAdded }) => {
     const [frequency, setFrequency] = useState('');
     const [duration, setDuration] = useState('');
 
+    // Catálogo de medicamentos para el desplegable
+    const [catalog, setCatalog] = useState([]);
+    const [autocompleteKey, setAutocompleteKey] = useState(0); // para limpiar el campo al guardar
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    useEffect(() => {
+        let active = true;
+        getMedications()
+            .then((data) => {
+                if (active && Array.isArray(data)) setCatalog(data);
+            })
+            .catch(() => {
+                // Si el catálogo no carga, el campo sigue funcionando como texto libre
+            });
+        return () => { active = false; };
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -35,7 +52,7 @@ const NewTreatmentForm = ({ consultationId, onTreatmentAdded }) => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    medication,
+                    medication: medication.trim(),
                     dose,
                     frequency_hours: parseInt(frequency),
                     duration_days: parseInt(duration)
@@ -50,6 +67,7 @@ const NewTreatmentForm = ({ consultationId, onTreatmentAdded }) => {
 
             setSuccess('Tratamiento recetado y recordatorios generados con éxito.');
             setMedication('');
+            setAutocompleteKey((k) => k + 1);
             setDose('');
             setFrequency('');
             setDuration('');
@@ -82,10 +100,23 @@ const NewTreatmentForm = ({ consultationId, onTreatmentAdded }) => {
             {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField
-                    fullWidth label="Medicamento" required
-                    value={medication} onChange={(e) => setMedication(e.target.value)}
-                    placeholder="Ej: Ibuprofeno"
+                {/* freeSolo: se puede elegir de la lista o escribir cualquier otro medicamento */}
+                <Autocomplete
+                    key={autocompleteKey}
+                    freeSolo
+                    options={catalog}
+                    groupBy={(option) => option.category}
+                    getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                    inputValue={medication}
+                    onInputChange={(e, value) => setMedication(value)}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            label="Medicamento"
+                            required
+                            placeholder="Escribí o elegí de la lista"
+                        />
+                    )}
                 />
                 <TextField
                     fullWidth label="Dosis" required

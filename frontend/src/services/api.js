@@ -276,3 +276,13 @@ export const markAllNotificationsRead = async () => {
     });
     return handleResponse(response);
 };
+
+export const getMedications = async () => {
+    const token = localStorage.getItem('token');
+    // La barra final es importante: la ruta de Flask es "/api/medication/"
+    const response = await fetch(`${API_URL}/medication/`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
