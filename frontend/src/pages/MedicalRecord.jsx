@@ -42,6 +42,8 @@ const MedicalRecord = () => {
         setError('');
         setSuccess('');
 
+        if (!bloodGroup) return setError('Debe seleccionar un grupo sanguíneo.');
+
         try {
             await saveMedicalRecord({ blood_group: bloodGroup, allergies, antecedents });
             setSuccess('Ficha médica guardada exitosamente.');

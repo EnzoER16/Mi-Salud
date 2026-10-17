@@ -122,6 +122,9 @@ def add_treatment(consultation_id):
     if not all([medication, dose, frequency_hours, duration_days]):
         return jsonify({"message": "Faltan parámetros del tratamiento."}), 400
 
+    if int(frequency_hours) <= 0 or int(duration_days) <= 0:
+        return jsonify({"message": "La frecuencia y duración deben ser mayores a cero."}), 400
+
     new_treatment = Treatment(
         id_consultation=consultation_id,
         medication=medication,

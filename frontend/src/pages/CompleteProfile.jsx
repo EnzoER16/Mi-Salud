@@ -58,6 +58,12 @@ const CompleteProfile = () => {
         setError('');
         setSuccess('');
 
+        if (user.role === 'Paciente' && dni.length < 7) {
+            return setError('El DNI debe tener al menos 7 dígitos.');
+        } else if (user.role === 'Doctor' && licenseNumber.length < 4) {
+            return setError('Ingresá una matrícula válida.');
+        }
+
         try {
             const profileData = user.role === 'Paciente'
                 ? { dni, health_insurance: healthInsurance, plan, member_number: memberNumber, address }

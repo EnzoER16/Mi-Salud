@@ -22,6 +22,9 @@ def create_or_update_profile():
     if not specialty or not license_number:
         return jsonify({"message": "La especialidad y la matrícula son obligatorias"}), 400
 
+    if len(specialty) < 3 or len(license_number) < 4:
+        return jsonify({"message": "La especialidad y la matrícula deben ser válidas"}), 400
+
     doctor = Doctor.query.filter_by(id_user=user_id).first()
 
     if doctor:

@@ -26,6 +26,10 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        if (!/\S+@\S+\.\S+/.test(email)) return setError('Ingresá un correo electrónico válido.');
+        if (password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres.');
+
         setLoading(true);
 
         try {

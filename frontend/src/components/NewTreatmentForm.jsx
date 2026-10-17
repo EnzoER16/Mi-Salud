@@ -16,6 +16,11 @@ const NewTreatmentForm = ({ consultationId, onTreatmentAdded }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (Number(frequency) <= 0 || Number(duration) <= 0) {
+            return setError('La frecuencia y la duración deben ser mayores a 0.');
+        }
+
         setLoading(true);
         setError('');
         setSuccess('');

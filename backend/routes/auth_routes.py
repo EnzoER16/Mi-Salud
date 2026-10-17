@@ -5,7 +5,7 @@ from config.settings import db
 from models.user import User
 from google.oauth2 import id_token
 from google.auth.transport import requests
-import secrets, os
+import secrets, os, re
 
 def role_required(*allowed_roles):
     def decorator(fn):
@@ -34,6 +34,12 @@ def register():
 
     if not username or not email or not password or not role:
         return jsonify({"message": "El nombre de usuario, email, rol y contraseña son obligatorios"}), 400
+
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return jsonify({"message": "Formato de email inválido"}), 400
+
+    if len(password) < 6:
+        return jsonify({"message": "La contraseña debe tener al menos 6 caracteres"}), 400
 
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "Ese nombre de usuario ya está en uso"}), 400

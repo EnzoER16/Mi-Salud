@@ -26,6 +26,9 @@ def create_or_update_profile():
     if not dni:
         return jsonify({"message": "Faltan datos obligatorios para completar el perfil"}), 400
 
+    if not dni.isdigit() or not (7 <= len(dni) <= 8):
+        return jsonify({"message": "El DNI debe tener entre 7 y 8 caracteres numéricos"}), 400
+
     patient = Patient.query.filter_by(id_user=user_id).first()
 
     if patient:
