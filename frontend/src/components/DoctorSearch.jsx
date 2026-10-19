@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Button, TextField, Paper, Alert, Avatar, InputAdornment } from '@mui/material';
+import { Box, Typography, Button, TextField, Paper, Alert, Avatar, InputAdornment, Chip, CircularProgress } from '@mui/material';
 import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -10,11 +10,12 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { getPatientByDni, createConsultation } from '../services/api';
+import { getPatientByDni, createConsultation, generateAISummary } from '../services/api';
 import NewTreatmentForm from './NewTreatmentForm';
 import TreatmentManager from './TreatmentManager';
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || 'P';
@@ -47,6 +48,10 @@ const DoctorSearch = ({ onConsultationCreated }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const [aiSummary, setAiSummary] = useState(null);
+    const [loadingAi, setLoadingAi] = useState(false);
+    const [aiError, setAiError] = useState('');
+
     // Estados para la nueva consulta
     const [showConsultationForm, setShowConsultationForm] = useState(false);
     const [location, setLocation] = useState('');
@@ -72,6 +77,8 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setPatientData(null);
         setIsScanning(false);
         resetConsultation();
+        setAiSummary(null);
+        setAiError('');
 
         try {
             const data = await getPatientByDni(dniToSearch);
@@ -106,6 +113,19 @@ const DoctorSearch = ({ onConsultationCreated }) => {
             setError(err.message || 'Error al guardar la consulta');
         } finally {
             setStartingConsultation(false);
+        }
+    };
+
+    const handleGenerateSummary = async () => {
+        setLoadingAi(true);
+        setAiError('');
+        try {
+            const data = await generateAISummary(patientData.id_patient);
+            setAiSummary(data.summary);
+        } catch (err) {
+            setAiError(err.message || 'Error al generar el resumen.');
+        } finally {
+            setLoadingAi(false);
         }
     };
 
@@ -254,6 +274,45 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                 label="Antecedentes"
                                 value={record?.antecedents || 'Ninguno'}
                             />
+                        </Box>
+
+                        {/* ===== Sección de Resumen con IA ===== */}
+                        <Box sx={{ mb: 3 }}>
+                            {!aiSummary && !loadingAi && (
+                                <Button 
+                                    variant="outlined" 
+                                    color="secondary" 
+                                    startIcon={<AutoAwesomeRoundedIcon />}
+                                    onClick={handleGenerateSummary}
+                                    sx={{ borderRadius: 2, bgcolor: '#F8FAFC' }}
+                                >
+                                    Generar resumen clínico con IA
+                                </Button>
+                            )}
+
+                            {loadingAi && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'secondary.main', p: 1 }}>
+                                    <CircularProgress size={20} color="secondary" />
+                                    <Typography variant="body2" fontWeight={600}>Analizando historial del paciente...</Typography>
+                                </Box>
+                            )}
+
+                            {aiError && <Alert severity="error" sx={{ mb: 2 }}>{aiError}</Alert>}
+
+                            {aiSummary && (
+                                <Paper elevation={0} sx={{ p: 2.5, bgcolor: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 3 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <AutoAwesomeRoundedIcon sx={{ color: '#7C3AED', fontSize: 20 }} />
+                                        <Typography variant="subtitle2" sx={{ color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Resumen Inteligente
+                                        </Typography>
+                                        <Chip label="Generado por IA" size="small" sx={{ ml: 'auto', bgcolor: '#EDE9FE', color: '#5B21B6', fontWeight: 600, fontSize: '0.7rem' }} />
+                                    </Box>
+                                    <Typography variant="body2" sx={{ color: '#4C1D95', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+                                        {aiSummary}
+                                    </Typography>
+                                </Paper>
+                            )}
                         </Box>
 
                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />

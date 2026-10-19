@@ -286,3 +286,12 @@ export const getMedications = async () => {
     });
     return handleResponse(response);
 };
+
+export const generateAISummary = async (patientId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/doctor/patient/${patientId}/ai-summary`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};

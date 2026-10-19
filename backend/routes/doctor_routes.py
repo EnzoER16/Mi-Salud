@@ -6,6 +6,8 @@ from models.patient import Patient
 from models.medical_consultation import MedicalConsultation
 from routes.auth_routes import role_required
 from datetime import datetime, timezone
+from models.medical_record import MedicalRecord
+import google.generativeai as genai, os
 
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
 
@@ -113,3 +115,68 @@ def get_doctor_history():
         })
 
     return jsonify(history_data), 200
+
+@doctor_bp.route("/patient/<string:patient_id>/ai-summary", methods=["GET"])
+@jwt_required()
+@role_required("Doctor")
+def generate_ai_summary(patient_id):
+    # 1. Verificamos la API Key
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return jsonify({"message": "La API Key de Gemini no está configurada."}), 500
+        
+    genai.configure(api_key=api_key)
+    
+    # 2. Recopilamos los datos del paciente
+    patient = Patient.query.get(patient_id)
+    if not patient:
+        return jsonify({"message": "Paciente no encontrado."}), 404
+        
+    record = MedicalRecord.query.filter_by(id_patient=patient_id).first()
+    
+    # Buscamos las últimas 5 consultas para darle contexto reciente a la IA
+    consultations = MedicalConsultation.query.filter_by(id_patient=patient_id).order_by(MedicalConsultation.date.desc()).limit(5).all()
+    
+    # 3. Armamos el historial en texto para el prompt
+    history_text = ""
+    for c in consultations:
+        date_str = c.date.strftime("%d/%m/%Y")
+        history_text += f"- {date_str} en {c.location}: {c.diagnosis}\n"
+        
+    if not history_text:
+        history_text = "El paciente no tiene consultas previas registradas en el sistema."
+
+    # 4. Construimos el Prompt (La instrucción para la IA)
+    prompt = f"""
+    Actúa como un asistente médico experto. Analiza el siguiente historial de un paciente y redacta un resumen clínico breve, directo y estructurado en máximo 2 párrafos cortos. 
+    El objetivo es que un médico lea esto en menos de 10 segundos para comprender el estado del paciente antes de la consulta.
+    
+    Datos clínicos estructurales:
+    - Grupo sanguíneo: {record.blood_group if record else 'No registrado'}
+    - Alergias: {record.allergies if record else 'Ninguna declarada'}
+    - Antecedentes/Enfermedades crónicas: {record.antecedents if record else 'Ninguno declarado'}
+    
+    Últimas atenciones médicas:
+    {history_text}
+    
+    Instrucciones estrictas: 
+    - Resalta de forma clara cualquier alerta médica crítica (ej. alergias peligrosas o enfermedades crónicas).
+    - Resume el patrón de las últimas consultas.
+    - No uses saludos, ni frases como "Aquí tienes el resumen", ve directo a la información médica.
+    """
+
+    try:
+        # Usamos exactamente el modelo que exige Google para las cuentas nuevas en este momento
+        model_name = 'gemini-3.8-flash'
+        
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(prompt)
+        
+        return jsonify({
+            "message": "Resumen generado exitosamente",
+            "summary": response.text
+        }), 200
+        
+    except Exception as e:
+        print("Error de integración con Gemini:", e)
+        return jsonify({"message": "Ocurrió un error al procesar el resumen con Inteligencia Artificial."}), 500
