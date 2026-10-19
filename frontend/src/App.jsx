@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CompleteProfile from './pages/CompleteProfile';
 import MedicalRecord from './pages/MedicalRecord';
+import Appointments from './pages/Appointments';
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useContext(AuthContext);
@@ -30,6 +31,7 @@ function App() {
                     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                     <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
                     <Route path="/medical-record" element={<ProtectedRoute><MedicalRecord /></ProtectedRoute>} />
+                    <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
                 </Routes>
             </Router>
         </AuthProvider>

@@ -10,6 +10,7 @@ import DoctorHistory from '../components/DoctorHistory';
 import PatientHistory from '../components/PatientHistory';
 import PatientIntakes from '../components/PatientIntakes';
 import TreatmentProgress from '../components/TreatmentProgress';
+import AppointmentsCard from '../components/AppointmentsCard';
 import PageHeader from '../components/PageHeader';
 import IconBadge from '../components/IconBadge';
 import { colors, cardSx, gradient } from '../theme';
@@ -90,46 +91,56 @@ const Dashboard = () => {
                         alignItems: 'start',
                     }}
                 >
-                    {/* Credencial QR */}
-                    <Paper
-                        elevation={0}
-                        sx={{ ...cardSx, overflow: 'hidden', textAlign: 'center', position: { md: 'sticky' }, top: { md: 110 } }}
+                    {/* Columna izquierda: credencial QR y acceso a Mis turnos.
+                        Queda fija al hacer scroll solo si la pantalla es lo bastante alta para mostrarla entera. */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3,
+                            '@media (min-width: 900px) and (min-height: 820px)': { position: 'sticky', top: 110 },
+                        }}
                     >
-                        <Box sx={{ height: 6, background: gradient }} />
-                        <Box sx={{ p: 3 }}>
-                            <Typography variant="overline" sx={{ color: colors.teal, fontWeight: 700, letterSpacing: '0.08em' }}>
-                                Mi credencial de salud
-                            </Typography>
-                            <Box
-                                sx={{
-                                    display: 'inline-flex',
-                                    p: 2,
-                                    my: 1.5,
-                                    borderRadius: 3,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    bgcolor: '#fff',
-                                }}
-                            >
-                                <QRCodeSVG value={profileData.dni} size={160} level="H" />
-                            </Box>
-                            <Typography fontWeight={700}>DNI: {profileData.dni}</Typography>
-                            
-                            {/* Contenedor en columna para forzar que vayan uno debajo del otro */}
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 1 }}>
-                                {profileData.health_insurance && (
-                                    <Chip
-                                        size="small"
-                                        label={`${profileData.health_insurance}${profileData.plan ? ` · ${profileData.plan}` : ''}`}
-                                        sx={{ bgcolor: 'primary.light', color: 'primary.main' }}
-                                    />
-                                )}
-                                <Typography variant="caption" color="text.secondary">
-                                    Presentá este código al médico
+                        {/* Credencial QR */}
+                        <Paper elevation={0} sx={{ ...cardSx, overflow: 'hidden', textAlign: 'center' }}>
+                            <Box sx={{ height: 6, background: gradient }} />
+                            <Box sx={{ p: 3 }}>
+                                <Typography variant="overline" sx={{ color: colors.teal, fontWeight: 700, letterSpacing: '0.08em' }}>
+                                    Mi credencial de salud
                                 </Typography>
+                                <Box
+                                    sx={{
+                                        display: 'inline-flex',
+                                        p: 2,
+                                        my: 1.5,
+                                        borderRadius: 3,
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        bgcolor: '#fff',
+                                    }}
+                                >
+                                    <QRCodeSVG value={profileData.dni} size={160} level="H" />
+                                </Box>
+                                <Typography fontWeight={700}>DNI: {profileData.dni}</Typography>
+                            
+                                {/* Contenedor en columna para forzar que vayan uno debajo del otro */}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 1 }}>
+                                    {profileData.health_insurance && (
+                                        <Chip
+                                            size="small"
+                                            label={`${profileData.health_insurance}${profileData.plan ? ` · ${profileData.plan}` : ''}`}
+                                            sx={{ bgcolor: 'primary.light', color: 'primary.main' }}
+                                        />
+                                    )}
+                                    <Typography variant="caption" color="text.secondary">
+                                        Presentá este código al médico
+                                    </Typography>
+                                </Box>
                             </Box>
-                        </Box>
-                    </Paper>
+                        </Paper>
+
+                        <AppointmentsCard />
+                    </Box>
 
                     {/* Contenido */}
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>

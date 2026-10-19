@@ -87,6 +87,8 @@ from models.medical_consultation import MedicalConsultation
 from models.treatment import Treatment
 from models.medication_intake import MedicationIntake
 from models.medication import seed_medications
+from models.appointment import Appointment
+from models.appointment_note import AppointmentNote
 from datetime import datetime, timedelta, timezone
 
 app = create_app()
@@ -181,4 +183,27 @@ with app.app_context():
         intake = MedicationIntake(id_treatment=treat3.id_treatment, scheduled_time=start_time_3 + timedelta(hours=24*i))
         db.session.add(intake)
         
+    db.session.commit()
+
+    # 6. Turnos personales de María (sección "Mis turnos"; los archivos los sube ella desde la app)
+    def at(days, hour, minute=0):
+        # Hora UTC sin zona, como el resto de la base (13:30 UTC = 10:30 hs en Argentina)
+        moment = now + timedelta(days=days)
+        return moment.replace(hour=hour, minute=minute, second=0, microsecond=0, tzinfo=None)
+
+    appt_next = Appointment(id_patient=pat_profile1.id_patient, title="Clínica médica", scheduled_at=at(4, 13, 30),
+                            doctor_name="Dr. Juan Ruiz", location="Consultorio 1", modality="Presencial")
+    appt_follow = Appointment(id_patient=pat_profile1.id_patient, title="Consulta de seguimiento", scheduled_at=at(18, 12, 0),
+                              doctor_name="Dr. Juan Ruiz", location="Consultorio 1", modality="Presencial")
+    appt_past1 = Appointment(id_patient=pat_profile1.id_patient, title="Clínica médica", scheduled_at=at(-10, 14, 0),
+                             doctor_name="Dr. Juan Ruiz", location="Consultorio 1", modality="Presencial")
+    appt_past2 = Appointment(id_patient=pat_profile1.id_patient, title="Clínica médica", scheduled_at=at(-24, 13, 0),
+                             doctor_name="Dr. Juan Ruiz", location="Consultorio 1", modality="Presencial")
+    db.session.add_all([appt_next, appt_follow, appt_past1, appt_past2])
+    db.session.commit()
+
+    db.session.add(AppointmentNote(
+        id_appointment=appt_next.id_appointment,
+        title="Para conversar en la consulta",
+        content="Quiero repasar con el profesional la documentación que adjunté."))
     db.session.commit()
