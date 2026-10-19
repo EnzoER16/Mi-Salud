@@ -12,6 +12,8 @@ class MedicationIntake(db.Model):
     taken_time = db.Column(db.DateTime, nullable=True)
     status = db.Column(Enum("Pendiente", "Tomado", "Omitido", name="intake_status"), default="Pendiente", nullable=False)
 
+    notified = db.Column(db.Boolean, default=False, nullable=False)
+
     def __init__(self, id_treatment, scheduled_time):
         self.id_treatment = id_treatment
         self.scheduled_time = scheduled_time

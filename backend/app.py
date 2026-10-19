@@ -14,6 +14,7 @@ from models import user, patient, doctor, medical_record, medical_consultation, 
 from models.medication import seed_medications
 from routes.notification_routes import notification_bp
 from routes.medication_routes import medication_bp
+from scheduler import start_scheduler
 
 def create_app():
     app = Flask(__name__)
@@ -36,6 +37,8 @@ def create_app():
     with app.app_context():
         db.create_all()
         seed_medications()  # carga el catálogo de medicamentos (solo agrega los que faltan)
+
+    start_scheduler(app)
 
     return app
 
