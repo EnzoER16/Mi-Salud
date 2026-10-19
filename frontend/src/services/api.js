@@ -286,3 +286,73 @@ export const getMedications = async () => {
     });
     return handleResponse(response);
 };
+
+// ===================== MIS TURNOS (turnos, archivos y notas del paciente) =====================
+
+// A diferencia de handleResponse, acá un 404 también es un error (turno borrado, archivo inexistente...)
+const appointmentResponse = async (response) => {
+    if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        throw new Error("Tu sesión ha expirado.");
+    }
+    if (!response.ok) {
+        let message = "Error de comunicación con el servidor";
+        try {
+            message = (await response.json()).message || message;
+        } catch {
+            // la respuesta no traía JSON: dejamos el mensaje por defecto
+        }
+        throw new Error(message);
+    }
+    return response;
+};
+
+const authHeaders = (extra = {}) => ({
+    "Authorization": `Bearer ${localStorage.getItem('token')}`,
+    ...extra
+});
+
+const requestJson = async (path, method = "GET", body) => {
+    const response = await fetch(`${API_URL}${path}`, {
+        method,
+        headers: authHeaders(body ? { "Content-Type": "application/json" } : {}),
+        body: body ? JSON.stringify(body) : undefined
+    });
+    return (await appointmentResponse(response)).json();
+};
+
+// La barra final de "/appointments/" es importante: así está definida la ruta en Flask
+export const getAppointments = () => requestJson("/appointments/");
+export const getAppointment = (id) => requestJson(`/appointments/${id}`);
+export const createAppointment = (data) => requestJson("/appointments/", "POST", data);
+export const updateAppointment = (id, data) => requestJson(`/appointments/${id}`, "PATCH", data);
+export const deleteAppointment = (id) => requestJson(`/appointments/${id}`, "DELETE");
+
+export const addAppointmentNote = (appointmentId, data) => requestJson(`/appointments/${appointmentId}/notes`, "POST", data);
+export const updateAppointmentNote = (noteId, data) => requestJson(`/appointments/notes/${noteId}`, "PATCH", data);
+export const deleteAppointmentNote = (noteId) => requestJson(`/appointments/notes/${noteId}`, "DELETE");
+
+export const deleteAppointmentFile = (fileId) => requestJson(`/appointments/files/${fileId}`, "DELETE");
+
+// Sube UN archivo (el navegador arma solo el Content-Type multipart, por eso no lo ponemos)
+export const uploadAppointmentFile = async (appointmentId, file) => {
+    const formData = new FormData();
+    formData.append("files", file);
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/files`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: formData
+    });
+    return (await appointmentResponse(response)).json();
+};
+
+// Los archivos son privados: se piden con el token y se devuelven como Blob
+// (para mostrarlos o descargarlos desde el navegador, ya que un <img src> no puede mandar el token)
+export const fetchAppointmentFile = async (fileId, { download = false } = {}) => {
+    const response = await fetch(`${API_URL}/appointments/files/${fileId}${download ? "?download=1" : ""}`, {
+        method: "GET",
+        headers: authHeaders()
+    });
+    return (await appointmentResponse(response)).blob();
+};

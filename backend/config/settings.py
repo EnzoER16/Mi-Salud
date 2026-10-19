@@ -20,3 +20,7 @@ class Configuration:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS").split(",")
+
+    # "Mis turnos": carpeta donde se guardan los archivos que suben los pacientes (PDF, JPG o PNG)
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+    MAX_CONTENT_LENGTH = 11 * 1024 * 1024   # tope por pedido: 10 MB de archivo + un poco de margen
