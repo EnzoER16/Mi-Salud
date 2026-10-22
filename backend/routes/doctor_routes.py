@@ -6,14 +6,11 @@ from models.patient import Patient
 from models.medical_consultation import MedicalConsultation
 from routes.auth_routes import role_required
 from datetime import datetime, timezone
-<<<<<<< HEAD
 from models.medical_record import MedicalRecord
 import google.generativeai as genai, os
-=======
 from routes.medical_record_routes import medical_record_payload
 from routes.patient_details_routes import patient_details_payload
 from routes.vaccine_routes import vaccines_payload
->>>>>>> lautaro
 
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
 

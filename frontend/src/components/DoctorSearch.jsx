@@ -277,7 +277,6 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                             />
                         </Box>
 
-<<<<<<< HEAD
                         {/* ===== Sección de Resumen con IA ===== */}
                         <Box sx={{ mb: 3 }}>
                             {!aiSummary && !loadingAi && (
@@ -316,10 +315,8 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                 </Paper>
                             )}
                         </Box>
-=======
                         {/* Datos adicionales que cargó el paciente (peso, condiciones, contactos de emergencia, vacunas...) */}
                         <PatientExtraInfo patientData={patientData} />
->>>>>>> lautaro
 
                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
 
