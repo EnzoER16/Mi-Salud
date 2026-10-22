@@ -6,6 +6,9 @@ from models.patient import Patient
 from models.medical_consultation import MedicalConsultation
 from routes.auth_routes import role_required
 from datetime import datetime, timezone
+from routes.medical_record_routes import medical_record_payload
+from routes.patient_details_routes import patient_details_payload
+from routes.vaccine_routes import vaccines_payload
 
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
 
@@ -65,24 +68,30 @@ def get_patient_by_dni(dni):
     if not patient:
         return jsonify({"message": "No se encontró ningún paciente con ese DNI."}), 404
 
-    # 2. Preparamos los datos de la ficha médica (si la tiene)
-    # Gracias a db.relationship, podemos acceder directamente con patient.medical_record
-    record_data = None
-    if patient.medical_record:
-        record_data = {
-            "blood_group": patient.medical_record.blood_group,
-            "allergies": patient.medical_record.allergies,
-            "antecedents": patient.medical_record.antecedents
-        }
-    
-    # 3. Devolvemos los datos estructurados para React
+    # 2. Ficha médica completa (si la tiene): la de siempre + peso, estatura, condiciones crónicas, etc.
+    record_data = medical_record_payload(patient)
+
+    # 3. Datos personales, contactos de emergencia y carnet de vacunas, para tener contexto en la consulta
+    personal = patient_details_payload(patient)
+    full_name = " ".join(p for p in (personal.get("first_name"), personal.get("last_name")) if p) or patient.user.username
+    contacts = [c.to_json() for c in sorted(patient.emergency_contacts, key=lambda c: c.created_at or datetime.min)]
+
+    # 4. Devolvemos los datos estructurados para React
     return jsonify({
         "id_patient": patient.id_patient,
-        "name": patient.user.username,
+        "name": full_name,
         "dni": patient.dni,
         "health_insurance": patient.health_insurance,
         "plan": patient.plan,
-        "medical_record": record_data
+        "medical_record": record_data,
+        "personal": {
+            "age": personal.get("age"),
+            "sex": personal.get("sex"),
+            "phone": personal.get("phone"),
+            "locality": personal.get("locality"),
+        },
+        "emergency_contacts": contacts,
+        "vaccines": vaccines_payload(patient.id_patient),
     }), 200
 
 @doctor_bp.route("/history", methods=["GET"])

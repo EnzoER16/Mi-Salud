@@ -7,6 +7,8 @@ import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownR
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -43,20 +45,32 @@ const Layout = ({ children }) => {
         { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" /> },
     ];
 
-    const menuItems = [
-        <MenuItem key="datos" onClick={() => go('/complete-profile')}>
-            <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
-            {isDoctor ? 'Datos profesionales' : 'Datos personales'}
-        </MenuItem>,
-    ];
-    if (!isDoctor) {
-        menuItems.push(
+    // Opciones del desplegable del perfil
+    const menuItems = isDoctor
+        ? [
+            <MenuItem key="personales" onClick={() => go('/personal-data')}>
+                <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
+                Datos personales
+            </MenuItem>,
+            <MenuItem key="profesionales" onClick={() => go('/complete-profile')}>
+                <ListItemIcon><BadgeOutlinedIcon fontSize="small" /></ListItemIcon>
+                Datos profesionales
+            </MenuItem>,
+        ]
+        : [
+            <MenuItem key="datos" onClick={() => go('/complete-profile')}>
+                <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
+                Datos personales
+            </MenuItem>,
             <MenuItem key="ficha" onClick={() => go('/medical-record')}>
                 <ListItemIcon><AssignmentOutlinedIcon fontSize="small" /></ListItemIcon>
                 Mi ficha médica
-            </MenuItem>
-        );
-    }
+            </MenuItem>,
+            <MenuItem key="vacunas" onClick={() => go('/vaccines')}>
+                <ListItemIcon><VaccinesOutlinedIcon fontSize="small" /></ListItemIcon>
+                Mis vacunas
+            </MenuItem>,
+        ];
 
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>

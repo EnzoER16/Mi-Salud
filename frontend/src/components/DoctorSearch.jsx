@@ -13,6 +13,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { getPatientByDni, createConsultation } from '../services/api';
 import NewTreatmentForm from './NewTreatmentForm';
 import TreatmentManager from './TreatmentManager';
+import PatientExtraInfo from './PatientExtraInfo';
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
 
@@ -255,6 +256,9 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                 value={record?.antecedents || 'Ninguno'}
                             />
                         </Box>
+
+                        {/* Datos adicionales que cargó el paciente (peso, condiciones, contactos de emergencia, vacunas...) */}
+                        <PatientExtraInfo patientData={patientData} />
 
                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
 

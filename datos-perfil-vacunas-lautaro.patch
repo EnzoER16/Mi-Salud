@@ -1,0 +1,2646 @@
+diff --git a/backend/app.py b/backend/app.py
+index de75c7d..fa8bad3 100644
+--- a/backend/app.py
++++ b/backend/app.py
+@@ -10,11 +10,14 @@ from routes.medical_record_routes import record_bp
+ from routes.medical_consultation_routes import consultation_bp
+ from routes.treatment_routes import treatment_bp
+ from routes.medication_intake_routes import intake_bp
+-from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification, medication, appointment, appointment_file, appointment_note
++from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification, medication, appointment, appointment_file, appointment_note, patient_details, emergency_contact, patient_health, patient_vaccine, doctor_details
+ from models.medication import seed_medications
+ from routes.notification_routes import notification_bp
+ from routes.medication_routes import medication_bp
+ from routes.appointment_routes import appointment_bp
++from routes.patient_details_routes import patient_details_bp
++from routes.doctor_details_routes import doctor_details_bp
++from routes.vaccine_routes import vaccine_bp
+ 
+ def create_app():
+     app = Flask(__name__)
+@@ -34,6 +37,9 @@ def create_app():
+     app.register_blueprint(notification_bp)
+     app.register_blueprint(medication_bp)
+     app.register_blueprint(appointment_bp)
++    app.register_blueprint(patient_details_bp)
++    app.register_blueprint(doctor_details_bp)
++    app.register_blueprint(vaccine_bp)
+ 
+     @app.errorhandler(413)
+     def file_too_large(_error):
+diff --git a/backend/models/doctor_details.py b/backend/models/doctor_details.py
+new file mode 100644
+index 0000000..15ea589
+--- /dev/null
++++ b/backend/models/doctor_details.py
+@@ -0,0 +1,41 @@
++from config.settings import db
++from validators import age_from, iso
++import uuid
++
++
++class DoctorDetails(db.Model):
++    """Datos personales y de atención del médico (la especialidad y la matrícula siguen en `doctors`)."""
++    __tablename__ = "doctor_details"
++
++    id_details = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
++    id_doctor = db.Column(db.String(36), db.ForeignKey("doctors.id_doctor"), unique=True, nullable=False)
++
++    # Personales
++    first_name = db.Column(db.String(60))
++    last_name = db.Column(db.String(60))
++    birth_date = db.Column(db.Date)
++    phone = db.Column(db.String(25))
++    locality = db.Column(db.String(80))
++    # Profesionales
++    workplace = db.Column(db.String(120))            # lugar de atención (consultorio, clínica, hospital)
++    office_address = db.Column(db.String(150))
++    attention_hours = db.Column(db.String(150))
++    accepted_insurances = db.Column(db.String(255))  # obras sociales que atiende
++    bio = db.Column(db.String(500))
++
++    doctor = db.relationship("Doctor", backref=db.backref("details", uselist=False, cascade="all, delete-orphan"))
++
++    FIELDS = ("first_name", "last_name", "birth_date", "phone", "locality",
++              "workplace", "office_address", "attention_hours", "accepted_insurances", "bio")
++
++    def to_json(self):
++        data = {f: getattr(self, f) for f in self.FIELDS}
++        data["birth_date"] = iso(self.birth_date)
++        data["age"] = age_from(self.birth_date)
++        return data
++
++
++def empty_doctor_details_json():
++    data = {f: None for f in DoctorDetails.FIELDS}
++    data["age"] = None
++    return data
+diff --git a/backend/models/emergency_contact.py b/backend/models/emergency_contact.py
+new file mode 100644
+index 0000000..c3ebe51
+--- /dev/null
++++ b/backend/models/emergency_contact.py
+@@ -0,0 +1,26 @@
++from config.settings import db
++from datetime import datetime, timezone
++import uuid
++
++
++class EmergencyContact(db.Model):
++    """Persona a la que llamar en caso de emergencia (un paciente puede cargar varias)."""
++    __tablename__ = "emergency_contacts"
++
++    id_contact = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
++    id_patient = db.Column(db.String(36), db.ForeignKey("patients.id_patient"), nullable=False, index=True)
++
++    name = db.Column(db.String(80), nullable=False)
++    relationship_label = db.Column("relationship", db.String(40))
++    phone = db.Column(db.String(25), nullable=False)
++    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
++
++    patient = db.relationship("Patient", backref=db.backref("emergency_contacts", cascade="all, delete-orphan"))
++
++    def to_json(self):
++        return {
++            "id_contact": self.id_contact,
++            "name": self.name,
++            "relationship": self.relationship_label,
++            "phone": self.phone,
++        }
+diff --git a/backend/models/patient_details.py b/backend/models/patient_details.py
+new file mode 100644
+index 0000000..6df12df
+--- /dev/null
++++ b/backend/models/patient_details.py
+@@ -0,0 +1,43 @@
++from config.settings import db
++from validators import age_from, iso
++import uuid
++
++
++class PatientDetails(db.Model):
++    """Datos personales ampliados del paciente (el DNI, la obra social y el domicilio siguen en `patients`)."""
++    __tablename__ = "patient_details"
++
++    id_details = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
++    id_patient = db.Column(db.String(36), db.ForeignKey("patients.id_patient"), unique=True, nullable=False)
++
++    first_name = db.Column(db.String(60))
++    last_name = db.Column(db.String(60))
++    birth_date = db.Column(db.Date)
++    sex = db.Column(db.String(25))
++    marital_status = db.Column(db.String(30))
++    occupation = db.Column(db.String(80))
++    phone = db.Column(db.String(25))
++    locality = db.Column(db.String(80))
++    province = db.Column(db.String(60))
++    postal_code = db.Column(db.String(10))
++
++    patient = db.relationship("Patient", backref=db.backref("details", uselist=False, cascade="all, delete-orphan"))
++
++    FIELDS = ("first_name", "last_name", "birth_date", "sex", "marital_status", "occupation",
++              "phone", "locality", "province", "postal_code")
++
++    @property
++    def full_name(self):
++        return " ".join(p for p in (self.first_name, self.last_name) if p) or None
++
++    def to_json(self):
++        data = {f: getattr(self, f) for f in self.FIELDS}
++        data["birth_date"] = iso(self.birth_date)
++        data["age"] = age_from(self.birth_date)
++        return data
++
++
++def empty_patient_details_json():
++    data = {f: None for f in PatientDetails.FIELDS}
++    data["age"] = None
++    return data
+diff --git a/backend/models/patient_health.py b/backend/models/patient_health.py
+new file mode 100644
+index 0000000..96c3236
+--- /dev/null
++++ b/backend/models/patient_health.py
+@@ -0,0 +1,53 @@
++from config.settings import db
++from validators import iso
++import uuid
++
++
++class PatientHealth(db.Model):
++    """Datos de salud adicionales de la ficha médica (el grupo sanguíneo, las alergias y los
++    antecedentes siguen en `medical_records`)."""
++    __tablename__ = "patient_health"
++
++    id_health = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
++    id_patient = db.Column(db.String(36), db.ForeignKey("patients.id_patient"), unique=True, nullable=False)
++
++    weight_kg = db.Column(db.Float)
++    height_cm = db.Column(db.Integer)
++    conditions = db.Column(db.JSON)            # lista de condiciones crónicas, ej: ["Diabetes", "Asma"]
++    intolerances = db.Column(db.Text)
++    surgeries = db.Column(db.Text)             # cirugías e internaciones
++    family_history = db.Column(db.Text)
++    current_medication = db.Column(db.Text)    # medicación habitual (incluye la que no recetó MiSalud+)
++    wears_glasses = db.Column(db.Boolean)
++    last_checkup = db.Column(db.Date)
++    last_dental_checkup = db.Column(db.Date)
++    primary_doctor_name = db.Column(db.String(100))
++    primary_doctor_phone = db.Column(db.String(25))
++    care_center = db.Column(db.String(120))    # hospital o centro de atención habitual
++
++    patient = db.relationship("Patient", backref=db.backref("health", uselist=False, cascade="all, delete-orphan"))
++
++    FIELDS = ("weight_kg", "height_cm", "conditions", "intolerances", "surgeries", "family_history",
++              "current_medication", "wears_glasses", "last_checkup", "last_dental_checkup",
++              "primary_doctor_name", "primary_doctor_phone", "care_center")
++
++    @property
++    def bmi(self):
++        if self.weight_kg and self.height_cm:
++            return round(self.weight_kg / ((self.height_cm / 100) ** 2), 1)
++        return None
++
++    def to_json(self):
++        data = {f: getattr(self, f) for f in self.FIELDS}
++        data["conditions"] = self.conditions or []
++        data["last_checkup"] = iso(self.last_checkup)
++        data["last_dental_checkup"] = iso(self.last_dental_checkup)
++        data["bmi"] = self.bmi
++        return data
++
++
++def empty_patient_health_json():
++    data = {f: None for f in PatientHealth.FIELDS}
++    data["conditions"] = []
++    data["bmi"] = None
++    return data
+diff --git a/backend/models/patient_vaccine.py b/backend/models/patient_vaccine.py
+new file mode 100644
+index 0000000..4ef287d
+--- /dev/null
++++ b/backend/models/patient_vaccine.py
+@@ -0,0 +1,33 @@
++from config.settings import db
++from validators import iso
++from datetime import datetime, timezone
++import uuid
++
++
++class PatientVaccine(db.Model):
++    """Una dosis de vacuna que el paciente se aplicó (carnet de vacunación personal)."""
++    __tablename__ = "patient_vaccines"
++
++    id_vaccine = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
++    id_patient = db.Column(db.String(36), db.ForeignKey("patients.id_patient"), nullable=False, index=True)
++
++    name = db.Column(db.String(100), nullable=False)
++    dose = db.Column(db.String(40))
++    applied_on = db.Column(db.Date)            # opcional: a veces no se recuerda la fecha exacta
++    next_dose_on = db.Column(db.Date)          # próxima dosis o refuerzo
++    place = db.Column(db.String(100))
++    notes = db.Column(db.String(255))
++    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
++
++    patient = db.relationship("Patient", backref=db.backref("vaccines", cascade="all, delete-orphan"))
++
++    def to_json(self):
++        return {
++            "id_vaccine": self.id_vaccine,
++            "name": self.name,
++            "dose": self.dose,
++            "applied_on": iso(self.applied_on),
++            "next_dose_on": iso(self.next_dose_on),
++            "place": self.place,
++            "notes": self.notes,
++        }
+diff --git a/backend/routes/doctor_details_routes.py b/backend/routes/doctor_details_routes.py
+new file mode 100644
+index 0000000..f62cbb2
+--- /dev/null
++++ b/backend/routes/doctor_details_routes.py
+@@ -0,0 +1,72 @@
++from flask import Blueprint, request, jsonify, g
++from flask_jwt_extended import jwt_required, get_jwt_identity
++from functools import wraps
++
++from config.settings import db
++from models.doctor import Doctor
++from models.doctor_details import DoctorDetails, empty_doctor_details_json
++from routes.auth_routes import role_required
++import validators as v
++
++# Comparte el prefijo /api/doctor con doctor_routes (acá solo vive /details)
++doctor_details_bp = Blueprint("doctor_details", __name__, url_prefix="/api/doctor")
++
++DETAILS_SPEC = {
++    "first_name": v.text("El nombre", 60),
++    "last_name": v.text("El apellido", 60),
++    "birth_date": v.day("La fecha de nacimiento"),
++    "phone": v.phone("El teléfono"),
++    "locality": v.text("La localidad", 80),
++    "workplace": v.text("El lugar de atención", 120),
++    "office_address": v.text("La dirección del consultorio", 150),
++    "attention_hours": v.text("Los horarios de atención", 150),
++    "accepted_insurances": v.text("Las obras sociales", 255),
++    "bio": v.text("La presentación", 500),
++}
++
++
++def doctor_required(fn):
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        doctor = Doctor.query.filter_by(id_user=get_jwt_identity()).first()
++        if not doctor:
++            return jsonify({"message": "Perfil de médico no encontrado. Completá tus datos profesionales primero."}), 404
++        g.doctor = doctor
++        return fn(*args, **kwargs)
++    return wrapper
++
++
++def doctor_details_payload(doctor):
++    details = doctor.details.to_json() if doctor.details else empty_doctor_details_json()
++    details["email"] = doctor.user.email if doctor.user else None
++    return details
++
++
++@doctor_details_bp.route("/details", methods=["GET"])
++@jwt_required()
++@role_required("Doctor")
++@doctor_required
++def get_details():
++    return jsonify(doctor_details_payload(g.doctor)), 200
++
++
++@doctor_details_bp.route("/details", methods=["PUT"])
++@jwt_required()
++@role_required("Doctor")
++@doctor_required
++def save_details():
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields(data, DETAILS_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    details = g.doctor.details
++    if not details:
++        details = DoctorDetails(id_doctor=g.doctor.id_doctor)
++        db.session.add(details)
++    for key, value in cleaned.items():
++        setattr(details, key, value)
++
++    db.session.commit()
++    return jsonify({"message": "Datos guardados.", "details": doctor_details_payload(g.doctor)}), 200
+diff --git a/backend/routes/doctor_routes.py b/backend/routes/doctor_routes.py
+index 2367626..38de59a 100644
+--- a/backend/routes/doctor_routes.py
++++ b/backend/routes/doctor_routes.py
+@@ -6,6 +6,9 @@ from models.patient import Patient
+ from models.medical_consultation import MedicalConsultation
+ from routes.auth_routes import role_required
+ from datetime import datetime, timezone
++from routes.medical_record_routes import medical_record_payload
++from routes.patient_details_routes import patient_details_payload
++from routes.vaccine_routes import vaccines_payload
+ 
+ doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
+ 
+@@ -65,24 +68,30 @@ def get_patient_by_dni(dni):
+     if not patient:
+         return jsonify({"message": "No se encontró ningún paciente con ese DNI."}), 404
+ 
+-    # 2. Preparamos los datos de la ficha médica (si la tiene)
+-    # Gracias a db.relationship, podemos acceder directamente con patient.medical_record
+-    record_data = None
+-    if patient.medical_record:
+-        record_data = {
+-            "blood_group": patient.medical_record.blood_group,
+-            "allergies": patient.medical_record.allergies,
+-            "antecedents": patient.medical_record.antecedents
+-        }
+-    
+-    # 3. Devolvemos los datos estructurados para React
++    # 2. Ficha médica completa (si la tiene): la de siempre + peso, estatura, condiciones crónicas, etc.
++    record_data = medical_record_payload(patient)
++
++    # 3. Datos personales, contactos de emergencia y carnet de vacunas, para tener contexto en la consulta
++    personal = patient_details_payload(patient)
++    full_name = " ".join(p for p in (personal.get("first_name"), personal.get("last_name")) if p) or patient.user.username
++    contacts = [c.to_json() for c in sorted(patient.emergency_contacts, key=lambda c: c.created_at or datetime.min)]
++
++    # 4. Devolvemos los datos estructurados para React
+     return jsonify({
+         "id_patient": patient.id_patient,
+-        "name": patient.user.username,
++        "name": full_name,
+         "dni": patient.dni,
+         "health_insurance": patient.health_insurance,
+         "plan": patient.plan,
+-        "medical_record": record_data
++        "medical_record": record_data,
++        "personal": {
++            "age": personal.get("age"),
++            "sex": personal.get("sex"),
++            "phone": personal.get("phone"),
++            "locality": personal.get("locality"),
++        },
++        "emergency_contacts": contacts,
++        "vaccines": vaccines_payload(patient.id_patient),
+     }), 200
+ 
+ @doctor_bp.route("/history", methods=["GET"])
+diff --git a/backend/routes/medical_record_routes.py b/backend/routes/medical_record_routes.py
+index 6f9539e..a2fe03e 100644
+--- a/backend/routes/medical_record_routes.py
++++ b/backend/routes/medical_record_routes.py
+@@ -3,57 +3,103 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
+ from config.settings import db
+ from models.patient import Patient
+ from models.medical_record import MedicalRecord
++from models.patient_health import PatientHealth, empty_patient_health_json
+ from routes.auth_routes import role_required
++import validators as v
+ 
+ record_bp = Blueprint("medical_record", __name__, url_prefix="/api/medical-record")
+ 
++BLOOD_GROUPS = ("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Desconocido")
++
++# Campos que viven en `medical_records` (los de siempre)
++RECORD_SPEC = {
++    "blood_group": v.choice("El grupo sanguíneo", BLOOD_GROUPS),
++    "allergies": v.text("Las alergias", 2000),
++    "antecedents": v.text("Los antecedentes", 2000),
++}
++
++# Campos nuevos, que viven en `patient_health`
++HEALTH_SPEC = {
++    "weight_kg": v.number("El peso", 1, 500),
++    "height_cm": v.number("La estatura", 30, 260, integer=True),
++    "conditions": v.string_list("Las condiciones crónicas"),
++    "intolerances": v.text("Las intolerancias", 2000),
++    "surgeries": v.text("Las cirugías e internaciones", 2000),
++    "family_history": v.text("Los antecedentes familiares", 2000),
++    "current_medication": v.text("La medicación habitual", 2000),
++    "wears_glasses": v.boolean("Usa anteojos"),
++    "last_checkup": v.day("La fecha del último control"),
++    "last_dental_checkup": v.day("La fecha del último control dental"),
++    "primary_doctor_name": v.text("El médico de cabecera", 100),
++    "primary_doctor_phone": v.phone("El teléfono del médico de cabecera"),
++    "care_center": v.text("El hospital o centro de atención", 120),
++}
++
++
++def medical_record_payload(patient):
++    """Ficha médica completa (la de siempre + los datos nuevos). La usa la ficha del paciente y la vista del médico.
++    Devuelve None si el paciente todavía no creó su ficha."""
++    record = patient.medical_record
++    if not record:
++        return None
++    payload = record.to_json()
++    payload.update(patient.health.to_json() if patient.health else empty_patient_health_json())
++    return payload
++
++
+ @record_bp.route("/", methods=["POST"])
+ @jwt_required()
+ @role_required("Paciente")
+ def create_or_update_record():
+     user_id = get_jwt_identity()
+-    
++
+     patient = Patient.query.filter_by(id_user=user_id).first()
+     if not patient:
+         return jsonify({"message": "Perfil de paciente no encontrado. Complete su perfil básico primero."}), 404
+ 
+     data = request.get_json(silent=True) or {}
+-    blood_group = data.get("blood_group")
+-    allergies = data.get("allergies")
+-    antecedents = data.get("antecedents")
+-
+-    record = MedicalRecord.query.filter_by(id_patient=patient.id_patient).first()
++    try:
++        record_values = v.parse_fields(data, RECORD_SPEC)
++        health_values = v.parse_fields(data, HEALTH_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
+ 
++    # Solo se actualizan las claves que llegaron: así guardar la ficha vieja no borra los datos nuevos (ni al revés)
++    record = patient.medical_record
+     if record:
+-        record.blood_group = blood_group
+-        record.allergies = allergies
+-        record.antecedents = antecedents
+         message = "Ficha médica actualizada correctamente"
+     else:
+-        record = MedicalRecord(
+-            id_patient=patient.id_patient,
+-            blood_group=blood_group,
+-            allergies=allergies,
+-            antecedents=antecedents)
++        record = MedicalRecord(id_patient=patient.id_patient)
+         db.session.add(record)
+         message = "Ficha médica creada correctamente"
++    for key, value in record_values.items():
++        setattr(record, key, value)
++
++    if health_values:
++        health = patient.health
++        if not health:
++            health = PatientHealth(id_patient=patient.id_patient)
++            db.session.add(health)
++        for key, value in health_values.items():
++            setattr(health, key, value)
+ 
+     db.session.commit()
+-    return jsonify({"message": message, "medical_record": record.to_json()}), 200
++    db.session.refresh(patient)
++    return jsonify({"message": message, "medical_record": medical_record_payload(patient)}), 200
++
+ 
+ @record_bp.route("/", methods=["GET"])
+ @jwt_required()
+ @role_required("Paciente")
+ def get_record():
+     user_id = get_jwt_identity()
+-    
++
+     patient = Patient.query.filter_by(id_user=user_id).first()
+     if not patient:
+         return jsonify({"message": "Perfil de paciente no encontrado."}), 404
+ 
+-    record = MedicalRecord.query.filter_by(id_patient=patient.id_patient).first()
+-    
+-    if not record:
++    payload = medical_record_payload(patient)
++    if not payload:
+         return jsonify({"message": "Aún no has creado tu ficha médica."}), 404
+ 
+-    return jsonify(record.to_json()), 200
+\ No newline at end of file
++    return jsonify(payload), 200
+diff --git a/backend/routes/patient_details_routes.py b/backend/routes/patient_details_routes.py
+new file mode 100644
+index 0000000..70e5c54
+--- /dev/null
++++ b/backend/routes/patient_details_routes.py
+@@ -0,0 +1,165 @@
++from flask import Blueprint, request, jsonify, g
++from flask_jwt_extended import jwt_required, get_jwt_identity
++from functools import wraps
++
++from config.settings import db
++from models.patient import Patient
++from models.patient_details import PatientDetails, empty_patient_details_json
++from models.emergency_contact import EmergencyContact
++from routes.auth_routes import role_required
++import validators as v
++
++# Comparte el prefijo /api/patient con patient_routes (las rutas no se pisan: /details y /emergency-contacts)
++patient_details_bp = Blueprint("patient_details", __name__, url_prefix="/api/patient")
++
++SEX_OPTIONS = ("Femenino", "Masculino", "Otro", "Prefiero no decirlo")
++MARITAL_OPTIONS = ("Soltero/a", "Casado/a", "Unión convivencial", "Divorciado/a", "Viudo/a")
++MAX_CONTACTS = 5
++
++DETAILS_SPEC = {
++    "first_name": v.text("El nombre", 60),
++    "last_name": v.text("El apellido", 60),
++    "birth_date": v.day("La fecha de nacimiento"),
++    "sex": v.choice("El sexo", SEX_OPTIONS),
++    "marital_status": v.choice("El estado civil", MARITAL_OPTIONS),
++    "occupation": v.text("La ocupación", 80),
++    "phone": v.phone("El teléfono"),
++    "locality": v.text("La localidad", 80),
++    "province": v.text("La provincia", 60),
++    "postal_code": v.postal_code("El código postal"),
++}
++
++CONTACT_SPEC = {
++    "name": v.text("El nombre del contacto", 80, required=True),
++    "relationship": v.text("El parentesco", 40),
++    "phone": v.phone("El teléfono del contacto", required=True),
++}
++
++
++def patient_required(fn):
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        patient = Patient.query.filter_by(id_user=get_jwt_identity()).first()
++        if not patient:
++            return jsonify({"message": "Perfil de paciente no encontrado. Completá tus datos primero."}), 404
++        g.patient = patient
++        return fn(*args, **kwargs)
++    return wrapper
++
++
++def patient_details_payload(patient):
++    """Datos personales completos (los de `patients` + los ampliados). También los usa la vista del médico."""
++    details = patient.details.to_json() if patient.details else empty_patient_details_json()
++    details["email"] = patient.user.email if patient.user else None
++    details["dni"] = patient.dni
++    details["address"] = patient.address
++    return details
++
++
++@patient_details_bp.route("/details", methods=["GET"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def get_details():
++    return jsonify(patient_details_payload(g.patient)), 200
++
++
++@patient_details_bp.route("/details", methods=["PUT"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def save_details():
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields(data, DETAILS_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    details = g.patient.details
++    if not details:
++        details = PatientDetails(id_patient=g.patient.id_patient)
++        db.session.add(details)
++    for key, value in cleaned.items():
++        setattr(details, key, value)
++
++    db.session.commit()
++    return jsonify({"message": "Datos personales guardados.", "details": patient_details_payload(g.patient)}), 200
++
++
++# ---------- Contactos de emergencia ----------
++
++def _owned_contact(contact_id):
++    return EmergencyContact.query.filter_by(id_contact=contact_id, id_patient=g.patient.id_patient).first()
++
++
++@patient_details_bp.route("/emergency-contacts", methods=["GET"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def list_contacts():
++    contacts = (EmergencyContact.query.filter_by(id_patient=g.patient.id_patient)
++                .order_by(EmergencyContact.created_at).all())
++    return jsonify([c.to_json() for c in contacts]), 200
++
++
++@patient_details_bp.route("/emergency-contacts", methods=["POST"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def add_contact():
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields({k: data.get(k) for k in CONTACT_SPEC}, CONTACT_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    total = EmergencyContact.query.filter_by(id_patient=g.patient.id_patient).count()
++    if total >= MAX_CONTACTS:
++        return jsonify({"message": f"Podés cargar hasta {MAX_CONTACTS} contactos de emergencia."}), 400
++
++    contact = EmergencyContact(
++        id_patient=g.patient.id_patient,
++        name=cleaned["name"],
++        relationship_label=cleaned["relationship"],
++        phone=cleaned["phone"])
++    db.session.add(contact)
++    db.session.commit()
++    return jsonify(contact.to_json()), 201
++
++
++@patient_details_bp.route("/emergency-contacts/<contact_id>", methods=["PATCH"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def update_contact(contact_id):
++    contact = _owned_contact(contact_id)
++    if not contact:
++        return jsonify({"message": "Contacto no encontrado."}), 404
++
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields(data, CONTACT_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    if "name" in cleaned:
++        contact.name = cleaned["name"]
++    if "relationship" in cleaned:
++        contact.relationship_label = cleaned["relationship"]
++    if "phone" in cleaned:
++        contact.phone = cleaned["phone"]
++    db.session.commit()
++    return jsonify(contact.to_json()), 200
++
++
++@patient_details_bp.route("/emergency-contacts/<contact_id>", methods=["DELETE"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def delete_contact(contact_id):
++    contact = _owned_contact(contact_id)
++    if not contact:
++        return jsonify({"message": "Contacto no encontrado."}), 404
++    db.session.delete(contact)
++    db.session.commit()
++    return jsonify({"message": "Contacto eliminado."}), 200
+diff --git a/backend/routes/patient_routes.py b/backend/routes/patient_routes.py
+index 8aa7177..c8b7697 100644
+--- a/backend/routes/patient_routes.py
++++ b/backend/routes/patient_routes.py
+@@ -6,6 +6,7 @@ from routes.auth_routes import role_required
+ from models.doctor import Doctor
+ from models.medical_record import MedicalRecord
+ from models.medical_consultation import MedicalConsultation
++from sqlalchemy.exc import IntegrityError
+ import qrcode, io, base64
+ 
+ patient_bp = Blueprint("patient", __name__, url_prefix="/api/patient")
+@@ -18,10 +19,11 @@ def create_or_update_profile():
+     data = request.get_json(silent=True) or {}
+ 
+     dni = (data.get("dni") or "").strip()
+-    health_insurance = (data.get("health_insurance") or "").strip()
+-    plan = (data.get("plan") or "").strip()
+-    member_number = (data.get("member_number") or "").strip()
+-    address = (data.get("address") or "").strip()
++    # Los campos opcionales vacíos se guardan como NULL (member_number es UNIQUE: dos "" chocarían entre sí)
++    health_insurance = (data.get("health_insurance") or "").strip() or None
++    plan = (data.get("plan") or "").strip() or None
++    member_number = (data.get("member_number") or "").strip() or None
++    address = (data.get("address") or "").strip() or None
+ 
+     if not dni:
+         return jsonify({"message": "Faltan datos obligatorios para completar el perfil"}), 400
+@@ -49,7 +51,11 @@ def create_or_update_profile():
+         db.session.add(patient)
+         message = "Perfil de paciente creado exitosamente"
+ 
+-    db.session.commit()
++    try:
++        db.session.commit()
++    except IntegrityError:
++        db.session.rollback()
++        return jsonify({"message": "Ese DNI o número de afiliado ya está registrado en otra cuenta."}), 400
+     return jsonify({"message": message, "profile": patient.to_json()}), 200
+ 
+ @patient_bp.route("/profile", methods=["GET"])
+diff --git a/backend/routes/vaccine_routes.py b/backend/routes/vaccine_routes.py
+new file mode 100644
+index 0000000..79e702d
+--- /dev/null
++++ b/backend/routes/vaccine_routes.py
+@@ -0,0 +1,122 @@
++from flask import Blueprint, request, jsonify, g
++from flask_jwt_extended import jwt_required, get_jwt_identity
++from functools import wraps
++
++from config.settings import db
++from models.patient import Patient
++from models.patient_vaccine import PatientVaccine
++from routes.auth_routes import role_required
++import validators as v
++
++vaccine_bp = Blueprint("vaccine", __name__, url_prefix="/api/vaccines")
++
++MAX_VACCINES = 150
++
++VACCINE_SPEC = {
++    "name": v.text("El nombre de la vacuna", 100, required=True),
++    "dose": v.text("La dosis", 40),
++    "applied_on": v.day("La fecha de aplicación"),
++    "next_dose_on": v.day("La fecha de la próxima dosis", allow_future=True),
++    "place": v.text("El lugar", 100),
++    "notes": v.text("Las notas", 255),
++}
++
++
++def patient_required(fn):
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        patient = Patient.query.filter_by(id_user=get_jwt_identity()).first()
++        if not patient:
++            return jsonify({"message": "Perfil de paciente no encontrado. Completá tus datos primero."}), 404
++        g.patient = patient
++        return fn(*args, **kwargs)
++    return wrapper
++
++
++def vaccines_payload(patient_id):
++    """Carnet ordenado: lo más reciente primero y las que no tienen fecha al final."""
++    vaccines = PatientVaccine.query.filter_by(id_patient=patient_id).all()
++    vaccines.sort(key=lambda x: (x.applied_on is None, -(x.applied_on.toordinal()) if x.applied_on else 0, x.name.lower()))
++    return [x.to_json() for x in vaccines]
++
++
++def _check_dates(applied_on, next_dose_on):
++    if applied_on and next_dose_on and next_dose_on <= applied_on:
++        return "La próxima dosis tiene que ser posterior a la fecha de aplicación."
++    return None
++
++
++@vaccine_bp.route("/", methods=["GET"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def list_vaccines():
++    return jsonify(vaccines_payload(g.patient.id_patient)), 200
++
++
++@vaccine_bp.route("/", methods=["POST"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def add_vaccine():
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields({k: data.get(k) for k in VACCINE_SPEC}, VACCINE_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    problem = _check_dates(cleaned["applied_on"], cleaned["next_dose_on"])
++    if problem:
++        return jsonify({"message": problem}), 400
++
++    if PatientVaccine.query.filter_by(id_patient=g.patient.id_patient).count() >= MAX_VACCINES:
++        return jsonify({"message": f"Alcanzaste el máximo de {MAX_VACCINES} vacunas cargadas."}), 400
++
++    vaccine = PatientVaccine(id_patient=g.patient.id_patient, **cleaned)
++    db.session.add(vaccine)
++    db.session.commit()
++    return jsonify(vaccine.to_json()), 201
++
++
++def _owned_vaccine(vaccine_id):
++    return PatientVaccine.query.filter_by(id_vaccine=vaccine_id, id_patient=g.patient.id_patient).first()
++
++
++@vaccine_bp.route("/<vaccine_id>", methods=["PATCH"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def update_vaccine(vaccine_id):
++    vaccine = _owned_vaccine(vaccine_id)
++    if not vaccine:
++        return jsonify({"message": "Vacuna no encontrada."}), 404
++
++    data = request.get_json(silent=True) or {}
++    try:
++        cleaned = v.parse_fields(data, VACCINE_SPEC)
++    except v.ValidationError as err:
++        return jsonify({"message": str(err)}), 400
++
++    applied_on = cleaned.get("applied_on", vaccine.applied_on)
++    next_dose_on = cleaned.get("next_dose_on", vaccine.next_dose_on)
++    problem = _check_dates(applied_on, next_dose_on)
++    if problem:
++        return jsonify({"message": problem}), 400
++
++    for key, value in cleaned.items():
++        setattr(vaccine, key, value)
++    db.session.commit()
++    return jsonify(vaccine.to_json()), 200
++
++
++@vaccine_bp.route("/<vaccine_id>", methods=["DELETE"])
++@jwt_required()
++@role_required("Paciente")
++@patient_required
++def delete_vaccine(vaccine_id):
++    vaccine = _owned_vaccine(vaccine_id)
++    if not vaccine:
++        return jsonify({"message": "Vacuna no encontrada."}), 404
++    db.session.delete(vaccine)
++    db.session.commit()
++    return jsonify({"message": "Vacuna eliminada."}), 200
+diff --git a/backend/validators.py b/backend/validators.py
+new file mode 100644
+index 0000000..febca0b
+--- /dev/null
++++ b/backend/validators.py
+@@ -0,0 +1,147 @@
++"""Validadores chicos y reutilizables para los datos de perfil, ficha médica y vacunas.
++
++Cada función recibe el valor crudo del JSON y devuelve el valor limpio (o None si quedó vacío).
++Si el dato no es válido lanzan ValidationError con un mensaje listo para mostrarle al usuario.
++"""
++import re
++from datetime import date, datetime
++
++
++class ValidationError(Exception):
++    pass
++
++
++def _empty(value):
++    return value is None or (isinstance(value, str) and not value.strip())
++
++
++def text(label, max_len, required=False):
++    def check(value):
++        if _empty(value):
++            if required:
++                raise ValidationError(f"{label} es obligatorio.")
++            return None
++        if not isinstance(value, str):
++            raise ValidationError(f"{label} no es válido.")
++        value = " ".join(value.split()) if "\n" not in value else value.strip()
++        if len(value) > max_len:
++            raise ValidationError(f"{label} no puede superar los {max_len} caracteres.")
++        return value
++    return check
++
++
++def phone(label, required=False):
++    def check(value):
++        value = text(label, 25, required)(value)
++        if value is None:
++            return None
++        digits = re.sub(r"\D", "", value)
++        if not re.fullmatch(r"[0-9+\-()\s]+", value) or not (6 <= len(digits) <= 15):
++            raise ValidationError(f"{label} no es un teléfono válido.")
++        return value
++    return check
++
++
++def postal_code(label):
++    def check(value):
++        value = text(label, 10)(value)
++        if value is not None and not re.fullmatch(r"[A-Za-z0-9 ]{3,10}", value):
++            raise ValidationError(f"{label} no es válido.")
++        return value
++    return check
++
++
++def choice(label, options, required=False):
++    def check(value):
++        if _empty(value):
++            if required:
++                raise ValidationError(f"{label} es obligatorio.")
++            return None
++        if value not in options:
++            raise ValidationError(f"{label} no es una opción válida.")
++        return value
++    return check
++
++
++def day(label, allow_future=False, min_year=1900, required=False):
++    """Fecha en formato AAAA-MM-DD."""
++    def check(value):
++        if _empty(value):
++            if required:
++                raise ValidationError(f"{label} es obligatoria.")
++            return None
++        try:
++            parsed = datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
++        except ValueError:
++            raise ValidationError(f"{label} no es una fecha válida.")
++        if parsed.year < min_year:
++            raise ValidationError(f"{label} no es una fecha válida.")
++        if not allow_future and parsed > date.today():
++            raise ValidationError(f"{label} no puede ser una fecha futura.")
++        return parsed
++    return check
++
++
++def number(label, minimum, maximum, integer=False):
++    def check(value):
++        if _empty(value):
++            return None
++        try:
++            parsed = float(str(value).replace(",", "."))
++        except ValueError:
++            raise ValidationError(f"{label} debe ser un número.")
++        if not (minimum <= parsed <= maximum):
++            raise ValidationError(f"{label} debe estar entre {minimum} y {maximum}.")
++        return int(round(parsed)) if integer else round(parsed, 1)
++    return check
++
++
++def boolean(label):
++    def check(value):
++        if value is None or value == "":
++            return None
++        if isinstance(value, bool):
++            return value
++        raise ValidationError(f"{label} no es válido.")
++    return check
++
++
++def string_list(label, max_items=20, max_len=60):
++    def check(value):
++        if value is None:
++            return []
++        if not isinstance(value, list):
++            raise ValidationError(f"{label} no es válido.")
++        clean = []
++        for item in value:
++            if not isinstance(item, str) or not item.strip():
++                continue
++            item = " ".join(item.split())
++            if len(item) > max_len:
++                raise ValidationError(f"Un elemento de {label} supera los {max_len} caracteres.")
++            if item not in clean:
++                clean.append(item)
++        if len(clean) > max_items:
++            raise ValidationError(f"{label} admite hasta {max_items} elementos.")
++        return clean
++    return check
++
++
++def parse_fields(data, spec):
++    """Limpia SOLO las claves que vinieron en `data` (así un PUT parcial no borra lo demás)."""
++    cleaned = {}
++    for key, check in spec.items():
++        if key in data:
++            cleaned[key] = check(data[key])
++    return cleaned
++
++
++def age_from(birth_date):
++    if not birth_date:
++        return None
++    today = date.today()
++    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
++
++
++def iso(value):
++    return value.isoformat() if value else None
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 06efa76..6873ca2 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -8,6 +8,8 @@ import Dashboard from './pages/Dashboard';
+ import CompleteProfile from './pages/CompleteProfile';
+ import MedicalRecord from './pages/MedicalRecord';
+ import Appointments from './pages/Appointments';
++import Vaccines from './pages/Vaccines';
++import DoctorPersonal from './pages/DoctorPersonal';
+ 
+ const ProtectedRoute = ({ children }) => {
+     const { user, loading } = useContext(AuthContext);
+@@ -32,6 +34,8 @@ function App() {
+                     <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
+                     <Route path="/medical-record" element={<ProtectedRoute><MedicalRecord /></ProtectedRoute>} />
+                     <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
++                    <Route path="/vaccines" element={<ProtectedRoute><Vaccines /></ProtectedRoute>} />
++                    <Route path="/personal-data" element={<ProtectedRoute><DoctorPersonal /></ProtectedRoute>} />
+                 </Routes>
+             </Router>
+         </AuthProvider>
+diff --git a/frontend/src/components/DoctorSearch.jsx b/frontend/src/components/DoctorSearch.jsx
+index f12e135..3d204da 100644
+--- a/frontend/src/components/DoctorSearch.jsx
++++ b/frontend/src/components/DoctorSearch.jsx
+@@ -13,6 +13,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
+ import { getPatientByDni, createConsultation } from '../services/api';
+ import NewTreatmentForm from './NewTreatmentForm';
+ import TreatmentManager from './TreatmentManager';
++import PatientExtraInfo from './PatientExtraInfo';
+ import IconBadge from './IconBadge';
+ import { colors, cardSx } from '../theme';
+ 
+@@ -256,6 +257,9 @@ const DoctorSearch = ({ onConsultationCreated }) => {
+                             />
+                         </Box>
+ 
++                        {/* Datos adicionales que cargó el paciente (peso, condiciones, contactos de emergencia, vacunas...) */}
++                        <PatientExtraInfo patientData={patientData} />
++
+                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
+ 
+                         {/* Paso 1: botón para iniciar la consulta */}
+diff --git a/frontend/src/components/Layout.jsx b/frontend/src/components/Layout.jsx
+index b2fedda..2253b88 100644
+--- a/frontend/src/components/Layout.jsx
++++ b/frontend/src/components/Layout.jsx
+@@ -7,6 +7,8 @@ import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownR
+ import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
+ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
++import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
++import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+ import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+ import { useNavigate, useLocation } from 'react-router-dom';
+@@ -43,20 +45,32 @@ const Layout = ({ children }) => {
+         { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" /> },
+     ];
+ 
+-    const menuItems = [
+-        <MenuItem key="datos" onClick={() => go('/complete-profile')}>
+-            <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
+-            {isDoctor ? 'Datos profesionales' : 'Datos personales'}
+-        </MenuItem>,
+-    ];
+-    if (!isDoctor) {
+-        menuItems.push(
++    // Opciones del desplegable del perfil
++    const menuItems = isDoctor
++        ? [
++            <MenuItem key="personales" onClick={() => go('/personal-data')}>
++                <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
++                Datos personales
++            </MenuItem>,
++            <MenuItem key="profesionales" onClick={() => go('/complete-profile')}>
++                <ListItemIcon><BadgeOutlinedIcon fontSize="small" /></ListItemIcon>
++                Datos profesionales
++            </MenuItem>,
++        ]
++        : [
++            <MenuItem key="datos" onClick={() => go('/complete-profile')}>
++                <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
++                Datos personales
++            </MenuItem>,
+             <MenuItem key="ficha" onClick={() => go('/medical-record')}>
+                 <ListItemIcon><AssignmentOutlinedIcon fontSize="small" /></ListItemIcon>
+                 Mi ficha médica
+-            </MenuItem>
+-        );
+-    }
++            </MenuItem>,
++            <MenuItem key="vacunas" onClick={() => go('/vaccines')}>
++                <ListItemIcon><VaccinesOutlinedIcon fontSize="small" /></ListItemIcon>
++                Mis vacunas
++            </MenuItem>,
++        ];
+ 
+     return (
+         <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+diff --git a/frontend/src/components/PatientExtraInfo.jsx b/frontend/src/components/PatientExtraInfo.jsx
+new file mode 100644
+index 0000000..dfef536
+--- /dev/null
++++ b/frontend/src/components/PatientExtraInfo.jsx
+@@ -0,0 +1,115 @@
++import { Box, Typography, Chip, Accordion, AccordionSummary, AccordionDetails, Link } from '@mui/material';
++import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
++import ContactPhoneOutlinedIcon from '@mui/icons-material/ContactPhoneOutlined';
++import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
++import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
++import { colors } from '../theme';
++import { formatDay, bmiLabel } from './profile/format';
++
++const Row = ({ label, children }) => (
++    <Box sx={{ p: 1.75, borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: '#FAFCFD' }}>
++        <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
++            {label}
++        </Typography>
++        <Typography sx={{ fontWeight: 600, whiteSpace: 'pre-line', wordBreak: 'break-word' }} component="div">{children}</Typography>
++    </Box>
++);
++
++// Datos extra del paciente que el médico ve debajo de la ficha: solo se muestran los que el paciente completó.
++const PatientExtraInfo = ({ patientData }) => {
++    const record = patientData?.medical_record || {};
++    const personal = patientData?.personal || {};
++    const contacts = patientData?.emergency_contacts || [];
++    const vaccines = patientData?.vaccines || [];
++
++    const rows = [];
++    const who = [personal.age !== null && personal.age !== undefined ? `${personal.age} años` : null, personal.sex].filter(Boolean).join(' · ');
++    if (who) rows.push(['Edad y sexo', who]);
++    if (personal.phone || personal.locality) rows.push(['Contacto', [personal.phone, personal.locality].filter(Boolean).join(' · ')]);
++    if (record.weight_kg || record.height_cm) {
++        const parts = [record.weight_kg ? `${record.weight_kg} kg` : null, record.height_cm ? `${record.height_cm} cm` : null];
++        if (record.bmi) parts.push(`IMC ${record.bmi} (${bmiLabel(record.bmi)})`);
++        rows.push(['Peso y estatura', parts.filter(Boolean).join(' · ')]);
++    }
++    if (record.intolerances) rows.push(['Intolerancias', record.intolerances]);
++    if (record.current_medication) rows.push(['Medicación habitual', record.current_medication]);
++    if (record.surgeries) rows.push(['Cirugías e internaciones', record.surgeries]);
++    if (record.family_history) rows.push(['Antecedentes familiares', record.family_history]);
++    if (record.last_checkup) rows.push(['Último control médico', formatDay(record.last_checkup)]);
++    if (record.last_dental_checkup) rows.push(['Último control dental', formatDay(record.last_dental_checkup)]);
++    if (record.wears_glasses) rows.push(['Anteojos', 'Usa anteojos o lentes de contacto']);
++    if (record.primary_doctor_name) rows.push(['Médico de cabecera', [record.primary_doctor_name, record.primary_doctor_phone].filter(Boolean).join(' · ')]);
++    if (record.care_center) rows.push(['Centro de atención habitual', record.care_center]);
++
++    const conditions = record.conditions || [];
++    if (!rows.length && !conditions.length && !contacts.length && !vaccines.length) return null;
++
++    return (
++        <Box sx={{ mb: 3 }}>
++            {conditions.length > 0 && (
++                <Box sx={{ mb: 2 }}>
++                    <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#B26A00', display: 'block', mb: 0.75 }}>
++                        Condiciones crónicas
++                    </Typography>
++                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
++                        {conditions.map((c) => <Chip key={c} label={c} sx={{ bgcolor: '#FFF4E0', color: '#B26A00' }} />)}
++                    </Box>
++                </Box>
++            )}
++
++            {rows.length > 0 && (
++                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2, mb: 2 }}>
++                    {rows.map(([label, value]) => <Row key={label} label={label}>{value}</Row>)}
++                </Box>
++            )}
++
++            {contacts.length > 0 && (
++                <Accordion disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px !important', '&:before': { display: 'none' }, mb: 1.5 }}>
++                    <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
++                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
++                            <ContactPhoneOutlinedIcon fontSize="small" sx={{ color: colors.teal }} />
++                            <Typography sx={{ fontWeight: 700 }}>Contactos de emergencia ({contacts.length})</Typography>
++                        </Box>
++                    </AccordionSummary>
++                    <AccordionDetails sx={{ pt: 0 }}>
++                        {contacts.map((c) => (
++                            <Box key={c.id_contact} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', py: 0.75 }}>
++                                <Typography sx={{ fontWeight: 600 }}>
++                                    {c.name}{c.relationship ? <Typography component="span" color="text.secondary"> · {c.relationship}</Typography> : null}
++                                </Typography>
++                                <Link href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
++                                    <PhoneOutlinedIcon sx={{ fontSize: 16 }} /> {c.phone}
++                                </Link>
++                            </Box>
++                        ))}
++                    </AccordionDetails>
++                </Accordion>
++            )}
++
++            {vaccines.length > 0 && (
++                <Accordion disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px !important', '&:before': { display: 'none' } }}>
++                    <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
++                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
++                            <VaccinesOutlinedIcon fontSize="small" sx={{ color: colors.teal }} />
++                            <Typography sx={{ fontWeight: 700 }}>Vacunas ({vaccines.length})</Typography>
++                        </Box>
++                    </AccordionSummary>
++                    <AccordionDetails sx={{ pt: 0 }}>
++                        {vaccines.map((v) => (
++                            <Box key={v.id_vaccine} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', py: 0.75 }}>
++                                <Typography sx={{ fontWeight: 600 }}>
++                                    {v.name}{v.dose ? <Typography component="span" color="text.secondary"> · {v.dose}</Typography> : null}
++                                </Typography>
++                                <Typography variant="body2" color="text.secondary">
++                                    {v.applied_on ? formatDay(v.applied_on) : 'Sin fecha'}{v.next_dose_on ? ` · próxima ${formatDay(v.next_dose_on)}` : ''}
++                                </Typography>
++                            </Box>
++                        ))}
++                    </AccordionDetails>
++                </Accordion>
++            )}
++        </Box>
++    );
++};
++
++export default PatientExtraInfo;
+diff --git a/frontend/src/components/profile/EmergencyContacts.jsx b/frontend/src/components/profile/EmergencyContacts.jsx
+new file mode 100644
+index 0000000..2e26f7e
+--- /dev/null
++++ b/frontend/src/components/profile/EmergencyContacts.jsx
+@@ -0,0 +1,193 @@
++import { useState, useEffect } from 'react';
++import {
++    Box, Typography, Button, IconButton, Tooltip, Chip, Alert, CircularProgress, Link,
++    Dialog, DialogTitle, DialogContent, DialogActions, TextField, Autocomplete, Stack,
++} from '@mui/material';
++import AddRoundedIcon from '@mui/icons-material/AddRounded';
++import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
++import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
++import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
++import ContactPhoneOutlinedIcon from '@mui/icons-material/ContactPhoneOutlined';
++import {
++    getEmergencyContacts, addEmergencyContact, updateEmergencyContact, deleteEmergencyContact,
++} from '../../services/api';
++import ConfirmDialog from '../appointments/ConfirmDialog';
++import FormSection from './FormSection';
++import { RELATIONSHIPS } from './format';
++
++const MAX_CONTACTS = 5;
++const EMPTY = { name: '', relationship: '', phone: '' };
++
++const ContactDialog = ({ open, contact, onClose, onSaved }) => {
++    const [form, setForm] = useState(EMPTY);
++    const [saving, setSaving] = useState(false);
++    const [error, setError] = useState('');
++
++    useEffect(() => {
++        if (!open) return;
++        setError('');
++        setForm(contact ? { name: contact.name, relationship: contact.relationship || '', phone: contact.phone } : EMPTY);
++    }, [open, contact]);
++
++    const handleSubmit = async (e) => {
++        e.preventDefault();
++        setError('');
++        setSaving(true);
++        try {
++            const payload = { name: form.name, relationship: form.relationship, phone: form.phone };
++            const saved = contact
++                ? await updateEmergencyContact(contact.id_contact, payload)
++                : await addEmergencyContact(payload);
++            onSaved(saved, Boolean(contact));
++        } catch (err) {
++            setError(err.message);
++        } finally {
++            setSaving(false);
++        }
++    };
++
++    return (
++        <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="xs" fullWidth>
++            <form onSubmit={handleSubmit}>
++                <DialogTitle>{contact ? 'Editar contacto' : 'Nuevo contacto de emergencia'}</DialogTitle>
++                <DialogContent>
++                    <Stack spacing={2.5} sx={{ mt: 1 }}>
++                        {error && <Alert severity="error">{error}</Alert>}
++                        <TextField
++                            label="Nombre y apellido" required autoFocus value={form.name}
++                            onChange={(e) => setForm({ ...form, name: e.target.value })}
++                            slotProps={{ htmlInput: { maxLength: 80 } }}
++                        />
++                        <Autocomplete
++                            freeSolo options={RELATIONSHIPS} inputValue={form.relationship}
++                            onInputChange={(_, value) => setForm((prev) => ({ ...prev, relationship: value }))}
++                            renderInput={(params) => <TextField {...params} label="Parentesco" placeholder="Ej: Madre, Pareja, Amigo/a" />}
++                        />
++                        <TextField
++                            label="Teléfono" required value={form.phone} type="tel"
++                            onChange={(e) => setForm({ ...form, phone: e.target.value })}
++                            slotProps={{ htmlInput: { maxLength: 25, inputMode: 'tel' } }}
++                        />
++                    </Stack>
++                </DialogContent>
++                <DialogActions sx={{ px: 3, pb: 2 }}>
++                    <Button color="inherit" onClick={onClose} disabled={saving}>Cancelar</Button>
++                    <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
++                </DialogActions>
++            </form>
++        </Dialog>
++    );
++};
++
++// "En caso de emergencia llamar a...": hasta 5 personas. `disabled` = todavía no hay perfil básico guardado.
++const EmergencyContacts = ({ disabled = false, onFeedback }) => {
++    const [contacts, setContacts] = useState([]);
++    const [loading, setLoading] = useState(!disabled);
++    const [error, setError] = useState('');
++    const [dialogOpen, setDialogOpen] = useState(false);
++    const [editing, setEditing] = useState(null);
++    const [toDelete, setToDelete] = useState(null);
++    const [deleting, setDeleting] = useState(false);
++
++    useEffect(() => {
++        if (disabled) { setLoading(false); return; }
++        let cancelled = false;
++        getEmergencyContacts()
++            .then((list) => { if (!cancelled) setContacts(list); })
++            .catch((err) => { if (!cancelled) setError(err.message); })
++            .finally(() => { if (!cancelled) setLoading(false); });
++        return () => { cancelled = true; };
++    }, [disabled]);
++
++    const openNew = () => { setEditing(null); setDialogOpen(true); };
++    const openEdit = (contact) => { setEditing(contact); setDialogOpen(true); };
++
++    const handleSaved = (saved, wasEdit) => {
++        setContacts((prev) => (wasEdit ? prev.map((c) => (c.id_contact === saved.id_contact ? saved : c)) : [...prev, saved]));
++        setDialogOpen(false);
++        onFeedback?.(wasEdit ? 'Contacto actualizado.' : 'Contacto agregado.');
++    };
++
++    const handleDelete = async () => {
++        setDeleting(true);
++        try {
++            await deleteEmergencyContact(toDelete.id_contact);
++            setContacts((prev) => prev.filter((c) => c.id_contact !== toDelete.id_contact));
++            setToDelete(null);
++            onFeedback?.('Contacto eliminado.');
++        } catch (err) {
++            setError(err.message);
++            setToDelete(null);
++        } finally {
++            setDeleting(false);
++        }
++    };
++
++    const full = contacts.length >= MAX_CONTACTS;
++
++    return (
++        <FormSection
++            icon={<ContactPhoneOutlinedIcon />}
++            tone="amber"
++            title="Contactos de emergencia"
++            description="A quién llamar si te pasa algo. Lo ven los médicos que te atienden."
++            columns={1}
++            action={
++                <Button
++                    size="small" variant="outlined" startIcon={<AddRoundedIcon />} onClick={openNew}
++                    disabled={disabled || full} sx={{ textTransform: 'none', letterSpacing: 0, whiteSpace: 'nowrap' }}
++                >
++                    Agregar
++                </Button>
++            }
++        >
++            {disabled && <Alert severity="info">Primero guardá tus datos personales para poder cargar contactos de emergencia.</Alert>}
++            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
++            {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={24} /></Box>}
++
++            {!loading && !disabled && contacts.length === 0 && (
++                <Typography variant="body2" color="text.secondary">
++                    Todavía no cargaste ningún contacto. Te recomendamos agregar al menos uno.
++                </Typography>
++            )}
++
++            {contacts.map((contact) => (
++                <Box
++                    key={contact.id_contact}
++                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: '#FAFCFD' }}
++                >
++                    <Box sx={{ flex: 1, minWidth: 0 }}>
++                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
++                            <Typography sx={{ fontWeight: 700 }} noWrap>{contact.name}</Typography>
++                            {contact.relationship && <Chip size="small" label={contact.relationship} sx={{ bgcolor: 'primary.light', color: 'primary.main' }} />}
++                        </Box>
++                        <Link href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`} underline="hover" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.9rem' }}>
++                            <PhoneOutlinedIcon sx={{ fontSize: 16 }} /> {contact.phone}
++                        </Link>
++                    </Box>
++                    <Tooltip title="Editar">
++                        <IconButton size="small" aria-label={`Editar contacto ${contact.name}`} onClick={() => openEdit(contact)}>
++                            <EditOutlinedIcon fontSize="small" />
++                        </IconButton>
++                    </Tooltip>
++                    <Tooltip title="Eliminar">
++                        <IconButton size="small" aria-label={`Eliminar contacto ${contact.name}`} onClick={() => setToDelete(contact)}>
++                            <DeleteOutlineOutlinedIcon fontSize="small" />
++                        </IconButton>
++                    </Tooltip>
++                </Box>
++            ))}
++
++            {full && <Typography variant="caption" color="text.secondary">Llegaste al máximo de {MAX_CONTACTS} contactos.</Typography>}
++
++            <ContactDialog open={dialogOpen} contact={editing} onClose={() => setDialogOpen(false)} onSaved={handleSaved} />
++            <ConfirmDialog
++                open={Boolean(toDelete)} title="Eliminar contacto" loading={deleting}
++                message={toDelete ? `Se va a eliminar a "${toDelete.name}" de tus contactos de emergencia.` : ''}
++                onConfirm={handleDelete} onClose={() => setToDelete(null)}
++            />
++        </FormSection>
++    );
++};
++
++export default EmergencyContacts;
+diff --git a/frontend/src/components/profile/FormSection.jsx b/frontend/src/components/profile/FormSection.jsx
+new file mode 100644
+index 0000000..62a3342
+--- /dev/null
++++ b/frontend/src/components/profile/FormSection.jsx
+@@ -0,0 +1,25 @@
++import { Paper, Box, Typography } from '@mui/material';
++import IconBadge from '../IconBadge';
++import { cardSx } from '../../theme';
++
++// Tarjeta con título e ícono que agrupa campos de un formulario ("Datos personales", "Domicilio", etc.)
++const FormSection = ({ icon, tone = 'teal', title, description, action, children, columns = 2 }) => (
++    <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3.5 } }}>
++        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
++            {icon && <IconBadge tone={tone} size={40}>{icon}</IconBadge>}
++            <Box sx={{ flex: 1, minWidth: 0 }}>
++                <Typography variant="h6" sx={{ fontSize: '1.05rem' }}>{title}</Typography>
++                {description && <Typography variant="body2" color="text.secondary">{description}</Typography>}
++            </Box>
++            {action}
++        </Box>
++        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: columns === 1 ? '1fr' : '1fr 1fr' }, gap: 2.5 }}>
++            {children}
++        </Box>
++    </Paper>
++);
++
++// Para que un campo ocupe todo el ancho de la grilla
++export const fullWidth = { gridColumn: { sm: '1 / -1' } };
++
++export default FormSection;
+diff --git a/frontend/src/components/profile/format.js b/frontend/src/components/profile/format.js
+new file mode 100644
+index 0000000..79f8a51
+--- /dev/null
++++ b/frontend/src/components/profile/format.js
+@@ -0,0 +1,77 @@
++// Helpers para las pantallas de datos personales, ficha médica y vacunas.
++// El backend manda las fechas "solo día" como AAAA-MM-DD: se interpretan como fecha local
++// (si se usara new Date("2026-03-10") directamente, en Argentina se mostraría el día anterior).
++
++export const parseDay = (iso) => {
++    if (!iso) return null;
++    const [y, m, d] = iso.split('-').map(Number);
++    return new Date(y, m - 1, d);
++};
++
++// "10 mar 2026"
++export const formatDay = (iso) => {
++    const date = parseDay(iso);
++    if (!date) return '';
++    const month = date.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '');
++    return `${date.getDate()} ${month} ${date.getFullYear()}`;
++};
++
++// Fecha de hoy como AAAA-MM-DD en hora local (para el atributo max de los <input type="date">)
++export const todayInput = () => {
++    const now = new Date();
++    const pad = (n) => String(n).padStart(2, '0');
++    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
++};
++
++export const ageFromDay = (iso) => {
++    const birth = parseDay(iso);
++    if (!birth) return null;
++    const now = new Date();
++    let age = now.getFullYear() - birth.getFullYear();
++    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1;
++    return age >= 0 ? age : null;
++};
++
++// Índice de masa corporal y su lectura en palabras
++export const bmiValue = (weightKg, heightCm) => {
++    const w = parseFloat(String(weightKg).replace(',', '.'));
++    const h = parseFloat(heightCm);
++    if (!w || !h) return null;
++    return Math.round((w / ((h / 100) ** 2)) * 10) / 10;
++};
++
++export const bmiLabel = (bmi) => {
++    if (bmi === null || bmi === undefined) return '';
++    if (bmi < 18.5) return 'Bajo peso';
++    if (bmi < 25) return 'Peso normal';
++    if (bmi < 30) return 'Sobrepeso';
++    return 'Obesidad';
++};
++
++// null/undefined -> '' para los inputs controlados
++export const str = (value) => (value === null || value === undefined ? '' : String(value));
++
++// Datos del formulario -> payload (los vacíos se mandan como null para que el backend los borre)
++export const orNullValue = (value) => {
++    const text = typeof value === 'string' ? value.trim() : value;
++    return text === '' ? null : text;
++};
++
++export const SEX_OPTIONS = ['Femenino', 'Masculino', 'Otro', 'Prefiero no decirlo'];
++export const MARITAL_OPTIONS = ['Soltero/a', 'Casado/a', 'Unión convivencial', 'Divorciado/a', 'Viudo/a'];
++export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Desconocido'];
++export const RELATIONSHIPS = ['Madre', 'Padre', 'Pareja', 'Hijo/a', 'Hermano/a', 'Amigo/a', 'Otro'];
++
++export const CONDITIONS = [
++    'Diabetes', 'Hipertensión', 'Asma', 'Enfermedad cardíaca', 'EPOC', 'Epilepsia',
++    'Enfermedad renal crónica', 'Problemas de tiroides', 'Celiaquía', 'Colesterol alto', 'Cáncer',
++];
++
++// Vacunas más comunes del Calendario Nacional de Vacunación de Argentina (se puede escribir cualquier otra)
++export const VACCINE_CATALOG = [
++    'BCG', 'Hepatitis B', 'Rotavirus', 'Neumococo conjugada', 'Quíntuple (pentavalente)', 'Polio (IPV)',
++    'Triple viral (sarampión, rubéola y paperas)', 'Hepatitis A', 'Varicela', 'Triple bacteriana celular (DPT)',
++    'Triple bacteriana acelular (dTpa)', 'Doble bacteriana (dT)', 'Meningococo', 'VPH', 'Fiebre amarilla',
++    'Fiebre hemorrágica argentina', 'Gripe (antigripal)', 'COVID-19', 'Antitetánica', 'VSR', 'Herpes zóster',
++];
++export const DOSE_OPTIONS = ['Dosis única', '1ª dosis', '2ª dosis', '3ª dosis', 'Refuerzo', 'Dosis anual'];
+diff --git a/frontend/src/components/vaccines/VaccineFormDialog.jsx b/frontend/src/components/vaccines/VaccineFormDialog.jsx
+new file mode 100644
+index 0000000..9149020
+--- /dev/null
++++ b/frontend/src/components/vaccines/VaccineFormDialog.jsx
+@@ -0,0 +1,110 @@
++import { useState, useEffect } from 'react';
++import {
++    Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Alert, Stack, Autocomplete, Box,
++} from '@mui/material';
++import { addVaccine, updateVaccine } from '../../services/api';
++import { VACCINE_CATALOG, DOSE_OPTIONS, todayInput, str, orNullValue } from '../profile/format';
++
++const EMPTY = { name: '', dose: '', applied_on: '', next_dose_on: '', place: '', notes: '' };
++
++// Sirve para agregar (vaccine = null) y para editar. `initialName` precarga el nombre (atajos de la pantalla vacía)
++const VaccineFormDialog = ({ open, vaccine, initialName = '', onClose, onSaved }) => {
++    const [form, setForm] = useState(EMPTY);
++    const [saving, setSaving] = useState(false);
++    const [error, setError] = useState('');
++
++    const isEdit = Boolean(vaccine);
++
++    useEffect(() => {
++        if (!open) return;
++        setError('');
++        setForm(vaccine ? {
++            name: vaccine.name, dose: str(vaccine.dose), applied_on: str(vaccine.applied_on),
++            next_dose_on: str(vaccine.next_dose_on), place: str(vaccine.place), notes: str(vaccine.notes),
++        } : { ...EMPTY, name: initialName });
++    }, [open, vaccine, initialName]);
++
++    const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
++
++    const handleSubmit = async (e) => {
++        e.preventDefault();
++        setError('');
++
++        if (!form.name.trim()) return setError('Escribí o elegí el nombre de la vacuna.');
++        if (form.applied_on && form.next_dose_on && form.next_dose_on <= form.applied_on) {
++            return setError('La próxima dosis tiene que ser posterior a la fecha de aplicación.');
++        }
++
++        setSaving(true);
++        try {
++            const payload = {
++                name: form.name.trim(),
++                dose: orNullValue(form.dose),
++                applied_on: orNullValue(form.applied_on),
++                next_dose_on: orNullValue(form.next_dose_on),
++                place: orNullValue(form.place),
++                notes: orNullValue(form.notes),
++            };
++            const saved = isEdit ? await updateVaccine(vaccine.id_vaccine, payload) : await addVaccine(payload);
++            onSaved(saved, isEdit);
++        } catch (err) {
++            setError(err.message);
++        } finally {
++            setSaving(false);
++        }
++    };
++
++    return (
++        <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
++            <form onSubmit={handleSubmit}>
++                <DialogTitle>{isEdit ? 'Editar vacuna' : 'Agregar vacuna'}</DialogTitle>
++                <DialogContent>
++                    <Stack spacing={2.5} sx={{ mt: 1 }}>
++                        {error && <Alert severity="error">{error}</Alert>}
++
++                        <Autocomplete
++                            freeSolo options={VACCINE_CATALOG} inputValue={form.name}
++                            onInputChange={(_, value) => setForm((prev) => ({ ...prev, name: value }))}
++                            renderInput={(params) => (
++                                <TextField
++                                    {...params} required autoFocus label="Vacuna" placeholder="Elegí de la lista o escribí otra"
++                                    slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps?.htmlInput, maxLength: 100 } }}
++                                />
++                            )}
++                        />
++
++                        <Autocomplete
++                            freeSolo options={DOSE_OPTIONS} inputValue={form.dose}
++                            onInputChange={(_, value) => setForm((prev) => ({ ...prev, dose: value }))}
++                            renderInput={(params) => (
++                                <TextField {...params} label="Dosis" slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps?.htmlInput, maxLength: 40 } }} />
++                            )}
++                        />
++
++                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
++                            <TextField
++                                label="Fecha de aplicación" type="date" value={form.applied_on} onChange={set('applied_on')}
++                                helperText="Podés dejarla vacía si no la recordás"
++                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInput(), min: '1900-01-01' } }}
++                            />
++                            <TextField
++                                label="Próxima dosis o refuerzo" type="date" value={form.next_dose_on} onChange={set('next_dose_on')}
++                                helperText="Opcional"
++                                slotProps={{ inputLabel: { shrink: true } }}
++                            />
++                        </Box>
++
++                        <TextField label="Lugar de aplicación" value={form.place} onChange={set('place')} placeholder="Ej: Centro de salud, vacunatorio" slotProps={{ htmlInput: { maxLength: 100 } }} />
++                        <TextField label="Notas" value={form.notes} onChange={set('notes')} placeholder="Ej: lote, reacción, observaciones" slotProps={{ htmlInput: { maxLength: 255 } }} />
++                    </Stack>
++                </DialogContent>
++                <DialogActions sx={{ px: 3, pb: 2 }}>
++                    <Button color="inherit" onClick={onClose} disabled={saving}>Cancelar</Button>
++                    <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
++                </DialogActions>
++            </form>
++        </Dialog>
++    );
++};
++
++export default VaccineFormDialog;
+diff --git a/frontend/src/pages/CompleteProfile.jsx b/frontend/src/pages/CompleteProfile.jsx
+index e934ae9..35b9091 100644
+--- a/frontend/src/pages/CompleteProfile.jsx
++++ b/frontend/src/pages/CompleteProfile.jsx
+@@ -1,80 +1,99 @@
+ import { useState, useEffect, useContext } from 'react';
+-import { Box, Paper, TextField, Button, Typography, Alert, CircularProgress } from '@mui/material';
++import { Box, TextField, Button, Alert, CircularProgress, MenuItem, Snackbar } from '@mui/material';
++import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
++import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
++import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
++import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
++import MedicalServicesOutlinedIcon from '@mui/icons-material/MedicalServicesOutlined';
++import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+ import { useNavigate } from 'react-router-dom';
+ import { AuthContext } from '../context/AuthContext';
+-import { createProfile, getProfile } from '../services/api';
++import {
++    createProfile, getProfile, getPatientDetails, savePatientDetails, getDoctorDetails, saveDoctorDetails,
++} from '../services/api';
+ import PageHeader from '../components/PageHeader';
+-import { cardSx } from '../theme';
++import FormSection, { fullWidth } from '../components/profile/FormSection';
++import EmergencyContacts from '../components/profile/EmergencyContacts';
++import { SEX_OPTIONS, MARITAL_OPTIONS, ageFromDay, todayInput, str, orNullValue } from '../components/profile/format';
+ 
++const PATIENT_DETAIL_FIELDS = ['first_name', 'last_name', 'birth_date', 'sex', 'marital_status', 'occupation', 'phone', 'locality', 'province', 'postal_code'];
++const DOCTOR_PRO_FIELDS = ['workplace', 'office_address', 'attention_hours', 'accepted_insurances', 'bio'];
++
++// Pantalla "Datos personales" del paciente y "Datos profesionales" del médico
+ const CompleteProfile = () => {
+     const { user } = useContext(AuthContext);
+     const navigate = useNavigate();
++    const isPatient = user?.role === 'Paciente';
+ 
+     const [loading, setLoading] = useState(true);
++    const [saving, setSaving] = useState(false);
+     const [error, setError] = useState('');
+-    const [success, setSuccess] = useState('');
+-
+-    const [dni, setDni] = useState('');
+-    const [healthInsurance, setHealthInsurance] = useState('');
+-    const [plan, setPlan] = useState('');
+-    const [memberNumber, setMemberNumber] = useState('');
+-    const [address, setAddress] = useState('');
++    const [feedback, setFeedback] = useState('');
++    const [hasProfile, setHasProfile] = useState(false);
+ 
+-    const [specialty, setSpecialty] = useState('');
+-    const [licenseNumber, setLicenseNumber] = useState('');
++    // Paciente: lo básico (tabla patients) + datos ampliados
++    const [base, setBase] = useState({ dni: '', health_insurance: '', plan: '', member_number: '', address: '' });
++    const [details, setDetails] = useState(Object.fromEntries(PATIENT_DETAIL_FIELDS.map((f) => [f, ''])));
++    const [email, setEmail] = useState('');
++    // Médico
++    const [pro, setPro] = useState({ specialty: '', license_number: '' });
++    const [place, setPlace] = useState(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, ''])));
+ 
+-    // Al cargar la vista, buscamos si ya tiene perfil creado
+     useEffect(() => {
+-        const fetchExistingProfile = async () => {
++        if (!user) return;
++        const load = async () => {
+             try {
+-                const existingData = await getProfile(user.role);
+-
+-                if (existingData) {
+-                    if (user.role === 'Paciente') {
+-                        setDni(existingData.dni || '');
+-                        setHealthInsurance(existingData.health_insurance || '');
+-                        setPlan(existingData.plan || '');
+-                        setMemberNumber(existingData.member_number || '');
+-                        setAddress(existingData.address || '');
+-                    } else if (user.role === 'Doctor') {
+-                        setSpecialty(existingData.specialty || '');
+-                        setLicenseNumber(existingData.license_number || '');
++                const profile = await getProfile(user.role);
++                if (profile) {
++                    setHasProfile(true);
++                    if (isPatient) {
++                        setBase({
++                            dni: str(profile.dni), health_insurance: str(profile.health_insurance), plan: str(profile.plan),
++                            member_number: str(profile.member_number), address: str(profile.address),
++                        });
++                        const d = await getPatientDetails();
++                        if (d) {
++                            setDetails(Object.fromEntries(PATIENT_DETAIL_FIELDS.map((f) => [f, str(d[f])])));
++                            setEmail(str(d.email));
++                        }
++                    } else {
++                        setPro({ specialty: str(profile.specialty), license_number: str(profile.license_number) });
++                        const d = await getDoctorDetails();
++                        if (d) setPlace(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, str(d[f])])));
+                     }
+                 }
+             } catch (err) {
+-                console.log('No se encontró perfil previo, se creará uno nuevo.');
++                console.log('No se pudo cargar el perfil previo:', err.message);
+             } finally {
+                 setLoading(false);
+             }
+         };
+-
+-        if (user) {
+-            fetchExistingProfile();
+-        }
+-    }, [user]);
++        load();
++    }, [user, isPatient]);
+ 
+     const handleSubmit = async (e) => {
+         e.preventDefault();
+         setError('');
+-        setSuccess('');
+ 
+-        if (user.role === 'Paciente' && dni.length < 7) {
+-            return setError('El DNI debe tener al menos 7 dígitos.');
+-        } else if (user.role === 'Doctor' && licenseNumber.length < 4) {
+-            return setError('Ingresá una matrícula válida.');
+-        }
++        if (isPatient && base.dni.length < 7) return setError('El DNI debe tener al menos 7 dígitos.');
++        if (!isPatient && pro.license_number.trim().length < 4) return setError('Ingresá una matrícula válida.');
+ 
++        setSaving(true);
+         try {
+-            const profileData = user.role === 'Paciente'
+-                ? { dni, health_insurance: healthInsurance, plan, member_number: memberNumber, address }
+-                : { specialty, license_number: licenseNumber };
+-
+-            await createProfile(profileData, user.role);
+-            setSuccess('Perfil guardado con éxito. Redirigiendo...');
+-
+-            setTimeout(() => navigate('/dashboard'), 1500);
++            if (isPatient) {
++                await createProfile(base, 'Paciente');
++                const payload = Object.fromEntries(PATIENT_DETAIL_FIELDS.map((f) => [f, orNullValue(details[f])]));
++                await savePatientDetails(payload);
++            } else {
++                await createProfile(pro, 'Doctor');
++                await saveDoctorDetails(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, orNullValue(place[f])])));
++            }
++            setHasProfile(true);
++            setFeedback('Datos guardados correctamente.');
+         } catch (err) {
+             setError(err.message);
++        } finally {
++            setSaving(false);
+         }
+     };
+ 
+@@ -86,53 +105,113 @@ const CompleteProfile = () => {
+         );
+     }
+ 
+-    const isPatient = user?.role === 'Paciente';
++    const setB = (key) => (e) => setBase((prev) => ({ ...prev, [key]: e.target.value }));
++    const setD = (key) => (e) => setDetails((prev) => ({ ...prev, [key]: e.target.value }));
++    const setP = (key) => (e) => setPlace((prev) => ({ ...prev, [key]: e.target.value }));
++    const age = ageFromDay(details.birth_date);
+ 
+     return (
+-        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
++        <Box sx={{ maxWidth: 760, width: '100%', mx: 'auto' }}>
+             <PageHeader
+                 eyebrow="Mi cuenta"
+                 title={isPatient ? 'Mis datos personales' : 'Mis datos profesionales'}
+-                subtitle="Revisá y mantené actualizada la información de tu cuenta."
++                subtitle={isPatient
++                    ? 'Mantené actualizada tu información: ayuda a que te atiendan más rápido y mejor.'
++                    : 'Esta información identifica tu consultorio y tu práctica profesional.'}
+             />
+ 
+-            <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 4 } }}>
+-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+-                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
++            <form onSubmit={handleSubmit}>
++                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
++                    {error && <Alert severity="error">{error}</Alert>}
+ 
+-                <form onSubmit={handleSubmit}>
+                     {isPatient ? (
+-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+-                            <TextField
+-                                label="DNI"
+-                                required
+-                                value={dni}
+-                                onChange={(e) => setDni(e.target.value.replace(/[^0-9]/g, ''))}
+-                                slotProps={{ htmlInput: { maxLength: 8, inputMode: 'numeric' } }}
+-                                sx={{ gridColumn: { sm: '1 / -1' } }}
+-                            />
+-                            <TextField label="Obra social" value={healthInsurance} onChange={(e) => setHealthInsurance(e.target.value)} />
+-                            <TextField label="Plan" value={plan} onChange={(e) => setPlan(e.target.value)} />
+-                            <TextField label="Número de afiliado" value={memberNumber} onChange={(e) => setMemberNumber(e.target.value)} />
+-                            <TextField label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} />
+-                        </Box>
++                        <>
++                            <FormSection icon={<PersonOutlineIcon />} title="Datos personales" description="Cómo figurás en tu ficha.">
++                                <TextField label="Nombre" value={details.first_name} onChange={setD('first_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
++                                <TextField label="Apellido" value={details.last_name} onChange={setD('last_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
++                                <TextField
++                                    label="DNI" required value={base.dni}
++                                    onChange={(e) => setBase((prev) => ({ ...prev, dni: e.target.value.replace(/[^0-9]/g, '') }))}
++                                    slotProps={{ htmlInput: { maxLength: 8, inputMode: 'numeric' } }}
++                                />
++                                <TextField
++                                    label="Fecha de nacimiento" type="date" value={details.birth_date} onChange={setD('birth_date')}
++                                    helperText={age !== null ? `${age} años` : ' '}
++                                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInput(), min: '1900-01-01' } }}
++                                />
++                                <TextField select label="Sexo" value={details.sex} onChange={setD('sex')}>
++                                    <MenuItem value=""><em>Sin especificar</em></MenuItem>
++                                    {SEX_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
++                                </TextField>
++                                <TextField select label="Estado civil" value={details.marital_status} onChange={setD('marital_status')}>
++                                    <MenuItem value=""><em>Sin especificar</em></MenuItem>
++                                    {MARITAL_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
++                                </TextField>
++                                <TextField label="Ocupación" value={details.occupation} onChange={setD('occupation')} slotProps={{ htmlInput: { maxLength: 80 } }} sx={fullWidth} />
++                            </FormSection>
++
++                            <FormSection icon={<HomeOutlinedIcon />} tone="blue" title="Domicilio y contacto" description="Para ubicarte y comunicarnos con vos.">
++                                <TextField label="Correo electrónico" value={email} disabled helperText="Es el de tu cuenta" />
++                                <TextField label="Teléfono" type="tel" value={details.phone} onChange={setD('phone')} slotProps={{ htmlInput: { maxLength: 25, inputMode: 'tel' } }} />
++                                <TextField label="Domicilio" value={base.address} onChange={setB('address')} slotProps={{ htmlInput: { maxLength: 100 } }} sx={fullWidth} placeholder="Calle y número" />
++                                <TextField label="Localidad" value={details.locality} onChange={setD('locality')} slotProps={{ htmlInput: { maxLength: 80 } }} />
++                                <TextField label="Provincia" value={details.province} onChange={setD('province')} slotProps={{ htmlInput: { maxLength: 60 } }} />
++                                <TextField label="Código postal" value={details.postal_code} onChange={setD('postal_code')} slotProps={{ htmlInput: { maxLength: 10 } }} />
++                            </FormSection>
++
++                            <FormSection icon={<HealthAndSafetyOutlinedIcon />} tone="green" title="Cobertura médica" description="Tu obra social o prepaga.">
++                                <TextField label="Obra social" value={base.health_insurance} onChange={setB('health_insurance')} slotProps={{ htmlInput: { maxLength: 50 } }} />
++                                <TextField label="Plan" value={base.plan} onChange={setB('plan')} slotProps={{ htmlInput: { maxLength: 10 } }} />
++                                <TextField label="Número de afiliado" value={base.member_number} onChange={setB('member_number')} slotProps={{ htmlInput: { maxLength: 20 } }} sx={fullWidth} />
++                            </FormSection>
++                        </>
+                     ) : (
+-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+-                            <TextField label="Especialidad" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+-                            <TextField label="Número de matrícula" required value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+-                        </Box>
++                        <>
++                            <FormSection icon={<BadgeOutlinedIcon />} title="Identificación profesional">
++                                <TextField label="Especialidad" required value={pro.specialty} onChange={(e) => setPro((p) => ({ ...p, specialty: e.target.value }))} slotProps={{ htmlInput: { maxLength: 50 } }} />
++                                <TextField label="Número de matrícula" required value={pro.license_number} onChange={(e) => setPro((p) => ({ ...p, license_number: e.target.value }))} slotProps={{ htmlInput: { maxLength: 20 } }} />
++                            </FormSection>
++
++                            <FormSection icon={<StorefrontOutlinedIcon />} tone="blue" title="Lugar de atención" description="Dónde y cuándo te pueden encontrar tus pacientes.">
++                                <TextField label="Consultorio, clínica u hospital" value={place.workplace} onChange={setP('workplace')} slotProps={{ htmlInput: { maxLength: 120 } }} sx={fullWidth} />
++                                <TextField label="Dirección" value={place.office_address} onChange={setP('office_address')} slotProps={{ htmlInput: { maxLength: 150 } }} />
++                                <TextField label="Horarios de atención" value={place.attention_hours} onChange={setP('attention_hours')} placeholder="Ej: Lun a Vie de 9 a 13" slotProps={{ htmlInput: { maxLength: 150 } }} />
++                                <TextField label="Obras sociales que atendés" value={place.accepted_insurances} onChange={setP('accepted_insurances')} placeholder="Ej: OSDE, Swiss Medical, PAMI" slotProps={{ htmlInput: { maxLength: 255 } }} sx={fullWidth} />
++                            </FormSection>
++
++                            <FormSection icon={<MedicalServicesOutlinedIcon />} tone="green" title="Presentación" description="Una breve descripción de tu práctica (opcional)." columns={1}>
++                                <TextField
++                                    multiline minRows={3} label="Sobre mí" value={place.bio} onChange={setP('bio')}
++                                    slotProps={{ htmlInput: { maxLength: 500 } }} helperText={`${place.bio.length}/500`}
++                                />
++                            </FormSection>
++                        </>
+                     )}
+ 
+-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 4 }}>
+-                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')}>
+-                            Cancelar
++                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
++                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')} disabled={saving}>
++                            Volver al inicio
+                         </Button>
+-                        <Button type="submit" variant="contained">
+-                            Guardar cambios
++                        <Button type="submit" variant="contained" disabled={saving}>
++                            {saving ? 'Guardando...' : 'Guardar cambios'}
+                         </Button>
+                     </Box>
+-                </form>
+-            </Paper>
++                </Box>
++            </form>
++
++            {/* Fuera del <form>: sus diálogos tienen su propio formulario y los eventos de React burbujean por los portales */}
++            {isPatient && (
++                <Box sx={{ mt: 3 }}>
++                    <EmergencyContacts disabled={!hasProfile} onFeedback={setFeedback} />
++                </Box>
++            )}
++
++            <Snackbar
++                open={Boolean(feedback)} autoHideDuration={3500} onClose={() => setFeedback('')}
++                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
++            >
++                <Alert severity="success" variant="filled" onClose={() => setFeedback('')} sx={{ width: '100%' }}>{feedback}</Alert>
++            </Snackbar>
+         </Box>
+     );
+ };
+diff --git a/frontend/src/pages/DoctorPersonal.jsx b/frontend/src/pages/DoctorPersonal.jsx
+new file mode 100644
+index 0000000..a13c930
+--- /dev/null
++++ b/frontend/src/pages/DoctorPersonal.jsx
+@@ -0,0 +1,110 @@
++import { useState, useEffect, useContext } from 'react';
++import { Box, TextField, Button, Alert, CircularProgress, Snackbar } from '@mui/material';
++import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
++import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
++import { Navigate, useNavigate } from 'react-router-dom';
++import { AuthContext } from '../context/AuthContext';
++import { getDoctorDetails, saveDoctorDetails } from '../services/api';
++import PageHeader from '../components/PageHeader';
++import FormSection from '../components/profile/FormSection';
++import { ageFromDay, todayInput, str, orNullValue } from '../components/profile/format';
++
++const FIELDS = ['first_name', 'last_name', 'birth_date', 'phone', 'locality'];
++
++// "Datos personales" del médico (los profesionales están en /complete-profile)
++const DoctorPersonal = () => {
++    const { user } = useContext(AuthContext);
++    const navigate = useNavigate();
++
++    const [loading, setLoading] = useState(true);
++    const [saving, setSaving] = useState(false);
++    const [error, setError] = useState('');
++    const [feedback, setFeedback] = useState('');
++    const [needsProfile, setNeedsProfile] = useState(false);
++    const [email, setEmail] = useState('');
++    const [form, setForm] = useState(Object.fromEntries(FIELDS.map((f) => [f, ''])));
++
++    useEffect(() => {
++        if (user?.role !== 'Doctor') return;
++        getDoctorDetails()
++            .then((d) => {
++                if (!d) return setNeedsProfile(true);   // todavía no cargó especialidad y matrícula
++                setForm(Object.fromEntries(FIELDS.map((f) => [f, str(d[f])])));
++                setEmail(str(d.email));
++            })
++            .catch((err) => setError(err.message))
++            .finally(() => setLoading(false));
++    }, [user]);
++
++    if (user && user.role !== 'Doctor') return <Navigate to="/dashboard" replace />;
++
++    const handleSubmit = async (e) => {
++        e.preventDefault();
++        setError('');
++        setSaving(true);
++        try {
++            await saveDoctorDetails(Object.fromEntries(FIELDS.map((f) => [f, orNullValue(form[f])])));
++            setFeedback('Datos guardados correctamente.');
++        } catch (err) {
++            setError(err.message);
++        } finally {
++            setSaving(false);
++        }
++    };
++
++    if (loading) {
++        return (
++            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
++                <CircularProgress color="primary" />
++            </Box>
++        );
++    }
++
++    const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
++    const age = ageFromDay(form.birth_date);
++
++    return (
++        <Box sx={{ maxWidth: 760, width: '100%', mx: 'auto' }}>
++            <PageHeader eyebrow="Mi cuenta" title="Mis datos personales" subtitle="Tus datos de contacto como persona (los de tu práctica están en Datos profesionales)." />
++
++            {needsProfile ? (
++                <Alert severity="info" action={<Button color="inherit" size="small" onClick={() => navigate('/complete-profile')}>Completar</Button>}>
++                    Primero completá tus datos profesionales (especialidad y matrícula).
++                </Alert>
++            ) : (
++                <form onSubmit={handleSubmit}>
++                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
++                        {error && <Alert severity="error">{error}</Alert>}
++
++                        <FormSection icon={<PersonOutlineIcon />} title="Datos personales">
++                            <TextField label="Nombre" value={form.first_name} onChange={set('first_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
++                            <TextField label="Apellido" value={form.last_name} onChange={set('last_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
++                            <TextField
++                                label="Fecha de nacimiento" type="date" value={form.birth_date} onChange={set('birth_date')}
++                                helperText={age !== null ? `${age} años` : ' '}
++                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInput(), min: '1900-01-01' } }}
++                            />
++                            <TextField label="Localidad" value={form.locality} onChange={set('locality')} slotProps={{ htmlInput: { maxLength: 80 } }} />
++                        </FormSection>
++
++                        <FormSection icon={<HomeOutlinedIcon />} tone="blue" title="Contacto">
++                            <TextField label="Correo electrónico" value={email} disabled helperText="Es el de tu cuenta" />
++                            <TextField label="Teléfono" type="tel" value={form.phone} onChange={set('phone')} slotProps={{ htmlInput: { maxLength: 25, inputMode: 'tel' } }} />
++                        </FormSection>
++
++                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
++                            <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')} disabled={saving}>Volver al inicio</Button>
++                            <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</Button>
++                        </Box>
++                    </Box>
++                </form>
++            )}
++
++            <Snackbar open={Boolean(feedback)} autoHideDuration={3500} onClose={() => setFeedback('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
++                <Alert severity="success" variant="filled" onClose={() => setFeedback('')} sx={{ width: '100%' }}>{feedback}</Alert>
++            </Snackbar>
++        </Box>
++    );
++};
++
++export default DoctorPersonal;
+diff --git a/frontend/src/pages/MedicalRecord.jsx b/frontend/src/pages/MedicalRecord.jsx
+index e8ab2c9..203be5e 100644
+--- a/frontend/src/pages/MedicalRecord.jsx
++++ b/frontend/src/pages/MedicalRecord.jsx
+@@ -1,31 +1,56 @@
+ import { useState, useEffect } from 'react';
+-import { Box, Paper, TextField, Button, Alert, MenuItem, CircularProgress } from '@mui/material';
++import {
++    Box, TextField, Button, Alert, MenuItem, CircularProgress, Chip, Typography, FormControlLabel, Switch, Snackbar, InputAdornment,
++} from '@mui/material';
++import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
++import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
++import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
++import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
++import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
++import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+ import { useNavigate } from 'react-router-dom';
+-import { getMedicalRecord, saveMedicalRecord } from '../services/api';
++import { getMedicalRecord, saveMedicalRecord, getProfile } from '../services/api';
+ import PageHeader from '../components/PageHeader';
+-import { cardSx } from '../theme';
++import FormSection, { fullWidth } from '../components/profile/FormSection';
++import { BLOOD_GROUPS, CONDITIONS, todayInput, str, orNullValue, bmiValue, bmiLabel } from '../components/profile/format';
+ 
+-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Desconocido'];
++const TEXT_FIELDS = [
++    'allergies', 'intolerances', 'antecedents', 'surgeries', 'family_history', 'current_medication',
++    'primary_doctor_name', 'primary_doctor_phone', 'care_center', 'last_checkup', 'last_dental_checkup',
++];
+ 
+ const MedicalRecord = () => {
+     const navigate = useNavigate();
+ 
+     const [loading, setLoading] = useState(true);
++    const [saving, setSaving] = useState(false);
+     const [error, setError] = useState('');
+-    const [success, setSuccess] = useState('');
++    const [feedback, setFeedback] = useState('');
++    const [needsProfile, setNeedsProfile] = useState(false);
+ 
+     const [bloodGroup, setBloodGroup] = useState('');
+-    const [allergies, setAllergies] = useState('');
+-    const [antecedents, setAntecedents] = useState('');
++    const [weight, setWeight] = useState('');
++    const [height, setHeight] = useState('');
++    const [conditions, setConditions] = useState([]);
++    const [glasses, setGlasses] = useState(false);
++    const [text, setText] = useState(Object.fromEntries(TEXT_FIELDS.map((f) => [f, ''])));
+ 
+     useEffect(() => {
+         const fetchRecord = async () => {
+             try {
++                const profile = await getProfile('Paciente');
++                if (!profile) {
++                    setNeedsProfile(true);
++                    return;
++                }
+                 const record = await getMedicalRecord();
+                 if (record) {
+                     setBloodGroup(record.blood_group || '');
+-                    setAllergies(record.allergies || '');
+-                    setAntecedents(record.antecedents || '');
++                    setWeight(str(record.weight_kg));
++                    setHeight(str(record.height_cm));
++                    setConditions(record.conditions || []);
++                    setGlasses(Boolean(record.wears_glasses));
++                    setText(Object.fromEntries(TEXT_FIELDS.map((f) => [f, str(record[f])])));
+                 }
+             } catch (err) {
+                 console.error(err);
+@@ -37,19 +62,31 @@ const MedicalRecord = () => {
+         fetchRecord();
+     }, []);
+ 
++    const toggleCondition = (name) =>
++        setConditions((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
++
+     const handleSubmit = async (e) => {
+         e.preventDefault();
+         setError('');
+-        setSuccess('');
+ 
+-        if (!bloodGroup) return setError('Debe seleccionar un grupo sanguíneo.');
++        if (!bloodGroup) return setError('Elegí tu grupo sanguíneo (si no lo sabés, "Desconocido").');
+ 
++        setSaving(true);
+         try {
+-            await saveMedicalRecord({ blood_group: bloodGroup, allergies, antecedents });
+-            setSuccess('Ficha médica guardada exitosamente.');
+-            setTimeout(() => navigate('/dashboard'), 2000);
++            const payload = {
++                blood_group: bloodGroup,
++                weight_kg: orNullValue(weight),
++                height_cm: orNullValue(height),
++                conditions,
++                wears_glasses: glasses,
++                ...Object.fromEntries(TEXT_FIELDS.map((f) => [f, orNullValue(text[f])])),
++            };
++            await saveMedicalRecord(payload);
++            setFeedback('Ficha médica guardada correctamente.');
+         } catch (err) {
+             setError(err.message);
++        } finally {
++            setSaving(false);
+         }
+     };
+ 
+@@ -61,49 +98,128 @@ const MedicalRecord = () => {
+         );
+     }
+ 
++    const setT = (key) => (e) => setText((prev) => ({ ...prev, [key]: e.target.value }));
++    const bmi = bmiValue(weight, height);
++
+     return (
+-        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
++        <Box sx={{ maxWidth: 760, width: '100%', mx: 'auto' }}>
+             <PageHeader
+                 eyebrow="Mi cuenta"
+                 title="Mi ficha médica"
+                 subtitle="Mantené actualizada tu información clínica. Es clave para los médicos que te atiendan."
+             />
+ 
+-            <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 4 } }}>
+-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+-                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+-
++            {needsProfile ? (
++                <Alert severity="info" action={<Button color="inherit" size="small" onClick={() => navigate('/complete-profile')}>Completar</Button>}>
++                    Primero completá tus datos personales (DNI) para poder crear tu ficha médica.
++                </Alert>
++            ) : (
+                 <form onSubmit={handleSubmit}>
+-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+-                        <TextField select fullWidth required label="Grupo sanguíneo" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}>
+-                            {BLOOD_GROUPS.map((option) => (
+-                                <MenuItem key={option} value={option}>{option}</MenuItem>
+-                            ))}
+-                        </TextField>
+-
+-                        <TextField
+-                            fullWidth multiline rows={3} label="Alergias conocidas"
+-                            placeholder="Ej: Penicilina, Ibuprofeno, Maní (dejar en blanco si no tiene)"
+-                            value={allergies} onChange={(e) => setAllergies(e.target.value)}
+-                        />
+-
+-                        <TextField
+-                            fullWidth multiline rows={4} label="Antecedentes médicos / enfermedades crónicas"
+-                            placeholder="Ej: Asma, Hipertensión, Diabetes tipo 2"
+-                            value={antecedents} onChange={(e) => setAntecedents(e.target.value)}
+-                        />
+-                    </Box>
+-
+-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 4 }}>
+-                        <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')}>
+-                            Cancelar
+-                        </Button>
+-                        <Button type="submit" variant="contained">
+-                            Guardar ficha
+-                        </Button>
++                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
++                        {error && <Alert severity="error">{error}</Alert>}
++
++                        <FormSection icon={<MonitorHeartOutlinedIcon />} title="Datos básicos" description="Los más importantes en una emergencia.">
++                            <TextField select label="Grupo sanguíneo *" error={Boolean(error) && !bloodGroup} value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} sx={fullWidth}>
++                                {BLOOD_GROUPS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
++                            </TextField>
++                            <TextField
++                                label="Peso" value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9.,]/g, ''))}
++                                slotProps={{ input: { endAdornment: <InputAdornment position="end">kg</InputAdornment> }, htmlInput: { inputMode: 'decimal', maxLength: 5 } }}
++                            />
++                            <TextField
++                                label="Estatura" value={height} onChange={(e) => setHeight(e.target.value.replace(/[^0-9]/g, ''))}
++                                slotProps={{ input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> }, htmlInput: { inputMode: 'numeric', maxLength: 3 } }}
++                            />
++                            {bmi !== null && (
++                                <Typography variant="body2" color="text.secondary" sx={fullWidth}>
++                                    Índice de masa corporal: <strong>{bmi}</strong> · {bmiLabel(bmi)} (es orientativo)
++                                </Typography>
++                            )}
++                            <FormControlLabel
++                                sx={fullWidth}
++                                control={<Switch checked={glasses} onChange={(e) => setGlasses(e.target.checked)} />}
++                                label="Uso anteojos o lentes de contacto"
++                            />
++                        </FormSection>
++
++                        <FormSection icon={<WarningAmberRoundedIcon />} tone="amber" title="Alergias e intolerancias" description="Dejá en blanco si no tenés." columns={1}>
++                            <TextField
++                                multiline minRows={2} label="Alergias conocidas" placeholder="Ej: Penicilina, Ibuprofeno, Maní"
++                                value={text.allergies} onChange={setT('allergies')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                            <TextField
++                                multiline minRows={2} label="Intolerancias" placeholder="Ej: Lactosa, Gluten"
++                                value={text.intolerances} onChange={setT('intolerances')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                        </FormSection>
++
++                        <FormSection icon={<VaccinesOutlinedIcon />} tone="blue" title="Condiciones crónicas y medicación" description="Tocá las que tengas." columns={1}>
++                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }} role="group" aria-label="Condiciones crónicas">
++                                {CONDITIONS.map((name) => {
++                                    const selected = conditions.includes(name);
++                                    return (
++                                        <Chip
++                                            key={name} label={name} clickable onClick={() => toggleCondition(name)}
++                                            aria-pressed={selected} color={selected ? 'primary' : 'default'}
++                                            variant={selected ? 'filled' : 'outlined'}
++                                        />
++                                    );
++                                })}
++                            </Box>
++                            <TextField
++                                multiline minRows={2} label="Otras enfermedades o antecedentes" placeholder="Algo que no esté en la lista"
++                                value={text.antecedents} onChange={setT('antecedents')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                            <TextField
++                                multiline minRows={2} label="Medicación habitual" placeholder="Ej: Enalapril 10 mg por la mañana"
++                                helperText="Incluí lo que tomás de forma regular, aunque no te lo haya recetado un médico de MiSalud+."
++                                value={text.current_medication} onChange={setT('current_medication')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                        </FormSection>
++
++                        <FormSection icon={<HistoryEduOutlinedIcon />} tone="green" title="Historia clínica" columns={1}>
++                            <TextField
++                                multiline minRows={2} label="Cirugías e internaciones" placeholder="Ej: Apendicectomía (2015), internación por neumonía (2020)"
++                                value={text.surgeries} onChange={setT('surgeries')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                            <TextField
++                                multiline minRows={2} label="Antecedentes familiares" placeholder="Ej: Padre con diabetes, madre con hipertensión"
++                                value={text.family_history} onChange={setT('family_history')} slotProps={{ htmlInput: { maxLength: 2000 } }}
++                            />
++                        </FormSection>
++
++                        <FormSection icon={<EventAvailableOutlinedIcon />} title="Controles" description="Cuándo fue la última vez.">
++                            <TextField
++                                label="Último control médico" type="date" value={text.last_checkup} onChange={setT('last_checkup')}
++                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInput() } }}
++                            />
++                            <TextField
++                                label="Último control dental" type="date" value={text.last_dental_checkup} onChange={setT('last_dental_checkup')}
++                                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInput() } }}
++                            />
++                        </FormSection>
++
++                        <FormSection icon={<LocalHospitalOutlinedIcon />} tone="blue" title="Dónde te atendés">
++                            <TextField label="Médico de cabecera" value={text.primary_doctor_name} onChange={setT('primary_doctor_name')} slotProps={{ htmlInput: { maxLength: 100 } }} />
++                            <TextField label="Teléfono del médico" type="tel" value={text.primary_doctor_phone} onChange={setT('primary_doctor_phone')} slotProps={{ htmlInput: { maxLength: 25, inputMode: 'tel' } }} />
++                            <TextField
++                                label="Hospital o centro de atención" value={text.care_center} onChange={setT('care_center')}
++                                placeholder="El que te queda más cerca o al que vas habitualmente"
++                                slotProps={{ htmlInput: { maxLength: 120 } }} sx={fullWidth}
++                            />
++                        </FormSection>
++
++                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
++                            <Button variant="outlined" color="inherit" onClick={() => navigate('/dashboard')} disabled={saving}>Volver al inicio</Button>
++                            <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Guardando...' : 'Guardar ficha'}</Button>
++                        </Box>
+                     </Box>
+                 </form>
+-            </Paper>
++            )}
++
++            <Snackbar open={Boolean(feedback)} autoHideDuration={3500} onClose={() => setFeedback('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
++                <Alert severity="success" variant="filled" onClose={() => setFeedback('')} sx={{ width: '100%' }}>{feedback}</Alert>
++            </Snackbar>
+         </Box>
+     );
+ };
+diff --git a/frontend/src/pages/Vaccines.jsx b/frontend/src/pages/Vaccines.jsx
+new file mode 100644
+index 0000000..c004877
+--- /dev/null
++++ b/frontend/src/pages/Vaccines.jsx
+@@ -0,0 +1,246 @@
++import { useState, useEffect, useContext, useMemo } from 'react';
++import {
++    Box, Paper, Typography, Button, Chip, IconButton, Tooltip, Alert, CircularProgress, Snackbar, Breadcrumbs, Link as MuiLink,
++} from '@mui/material';
++import { Link as RouterLink, Navigate } from 'react-router-dom';
++import AddRoundedIcon from '@mui/icons-material/AddRounded';
++import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
++import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
++import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
++import EventRepeatOutlinedIcon from '@mui/icons-material/EventRepeatOutlined';
++import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
++import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
++import { AuthContext } from '../context/AuthContext';
++import { getProfile, getVaccines, deleteVaccine } from '../services/api';
++import PageHeader from '../components/PageHeader';
++import IconBadge from '../components/IconBadge';
++import ConfirmDialog from '../components/appointments/ConfirmDialog';
++import VaccineFormDialog from '../components/vaccines/VaccineFormDialog';
++import { formatDay, parseDay, todayInput, VACCINE_CATALOG } from '../components/profile/format';
++import { cardSx } from '../theme';
++
++const QUICK_PICKS = ['Gripe (antigripal)', 'COVID-19', 'Hepatitis B', 'Antitetánica', 'Triple viral (sarampión, rubéola y paperas)'];
++const DAY_MS = 24 * 60 * 60 * 1000;
++
++// Estado de una "próxima dosis": vencida, próxima (30 días) o más adelante
++const nextDoseStatus = (iso) => {
++    const days = Math.round((parseDay(iso) - parseDay(todayInput())) / DAY_MS);
++    if (days < 0) return { label: `Vencida hace ${-days} ${-days === 1 ? 'día' : 'días'}`, tone: 'overdue' };
++    if (days === 0) return { label: 'Es hoy', tone: 'soon' };
++    if (days <= 30) return { label: `En ${days} ${days === 1 ? 'día' : 'días'}`, tone: 'soon' };
++    return { label: formatDay(iso), tone: 'later' };
++};
++
++const TONES = {
++    overdue: { bg: '#FDECEC', fg: '#B3261E' },
++    soon: { bg: '#FFF4E0', fg: '#B26A00' },
++    later: { bg: '#E6F5F7', fg: '#0A6F80' },
++};
++
++const Vaccines = () => {
++    const { user } = useContext(AuthContext);
++
++    const [loading, setLoading] = useState(true);
++    const [error, setError] = useState('');
++    const [needsProfile, setNeedsProfile] = useState(false);
++    const [vaccines, setVaccines] = useState([]);
++    const [feedback, setFeedback] = useState('');
++
++    const [dialogOpen, setDialogOpen] = useState(false);
++    const [editing, setEditing] = useState(null);
++    const [initialName, setInitialName] = useState('');
++    const [toDelete, setToDelete] = useState(null);
++    const [deleting, setDeleting] = useState(false);
++
++    const isPatient = user?.role === 'Paciente';
++
++    useEffect(() => {
++        if (!isPatient) return;
++        const load = async () => {
++            try {
++                const profile = await getProfile('Paciente');
++                if (!profile) return setNeedsProfile(true);
++                setVaccines(await getVaccines());
++            } catch (err) {
++                setError(err.message);
++            } finally {
++                setLoading(false);
++            }
++        };
++        load();
++    }, [isPatient]);
++
++    // Dosis pendientes: tienen fecha de próxima dosis y no hay una aplicación posterior de la misma vacuna
++    const upcoming = useMemo(() => vaccines
++        .filter((v) => v.next_dose_on)
++        .filter((v) => !vaccines.some((o) => o.id_vaccine !== v.id_vaccine && o.name === v.name && o.applied_on && o.applied_on >= v.next_dose_on))
++        .sort((a, b) => a.next_dose_on.localeCompare(b.next_dose_on)), [vaccines]);
++
++    if (user && !isPatient) return <Navigate to="/dashboard" replace />;
++
++    const openNew = (name = '') => { setEditing(null); setInitialName(name); setDialogOpen(true); };
++    const openEdit = (vaccine) => { setEditing(vaccine); setInitialName(''); setDialogOpen(true); };
++
++    const reload = async () => setVaccines(await getVaccines());   // el backend devuelve la lista ya ordenada
++
++    const handleSaved = async (_saved, wasEdit) => {
++        setDialogOpen(false);
++        setFeedback(wasEdit ? 'Vacuna actualizada.' : 'Vacuna agregada.');
++        try { await reload(); } catch (err) { setError(err.message); }
++    };
++
++    const handleDelete = async () => {
++        setDeleting(true);
++        try {
++            await deleteVaccine(toDelete.id_vaccine);
++            setToDelete(null);
++            setFeedback('Vacuna eliminada.');
++            await reload();
++        } catch (err) {
++            setError(err.message);
++            setToDelete(null);
++        } finally {
++            setDeleting(false);
++        }
++    };
++
++    if (loading) {
++        return (
++            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
++                <CircularProgress />
++            </Box>
++        );
++    }
++
++    return (
++        <Box sx={{ maxWidth: 860, width: '100%', mx: 'auto' }}>
++            <Breadcrumbs sx={{ mb: 1.5, fontSize: '0.85rem' }}>
++                <MuiLink component={RouterLink} to="/dashboard" underline="hover" color="text.secondary">Inicio</MuiLink>
++                <Typography color="primary" sx={{ fontSize: '0.85rem' }}>Mis vacunas</Typography>
++            </Breadcrumbs>
++
++            <PageHeader
++                title="Mis vacunas"
++                subtitle="Tu carnet de vacunación siempre a mano, y avisos de próximas dosis."
++                action={!needsProfile && (
++                    <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => openNew()}>Agregar vacuna</Button>
++                )}
++            />
++
++            {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
++
++            {needsProfile ? (
++                <Alert severity="info" action={<Button color="inherit" size="small" component={RouterLink} to="/complete-profile">Completar</Button>}>
++                    Primero completá tus datos personales (DNI) para poder cargar tus vacunas.
++                </Alert>
++            ) : (
++                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
++                    {upcoming.length > 0 && (
++                        <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3 } }}>
++                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
++                                <IconBadge tone="amber" size={40}><EventRepeatOutlinedIcon /></IconBadge>
++                                <Box>
++                                    <Typography variant="h6" sx={{ fontSize: '1.05rem' }}>Próximas dosis</Typography>
++                                    <Typography variant="body2" color="text.secondary">Las que tenés pendientes de aplicarte.</Typography>
++                                </Box>
++                            </Box>
++                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
++                                {upcoming.map((v) => {
++                                    const status = nextDoseStatus(v.next_dose_on);
++                                    const tone = TONES[status.tone];
++                                    return (
++                                        <Box key={v.id_vaccine} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', p: 1.5, borderRadius: 2.5, bgcolor: '#FAFCFD', border: '1px solid', borderColor: 'divider' }}>
++                                            <Box sx={{ minWidth: 0 }}>
++                                                <Typography sx={{ fontWeight: 700 }}>{v.name}</Typography>
++                                                <Typography variant="caption" color="text.secondary">
++                                                    {formatDay(v.next_dose_on)}{v.dose ? ` · después de: ${v.dose}` : ''}
++                                                </Typography>
++                                            </Box>
++                                            <Chip size="small" label={status.label} sx={{ bgcolor: tone.bg, color: tone.fg }} />
++                                        </Box>
++                                    );
++                                })}
++                            </Box>
++                        </Paper>
++                    )}
++
++                    <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3 } }}>
++                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
++                            <IconBadge tone="teal" size={40}><VaccinesOutlinedIcon /></IconBadge>
++                            <Box sx={{ flex: 1 }}>
++                                <Typography variant="h6" sx={{ fontSize: '1.05rem' }}>Vacunas registradas</Typography>
++                                <Typography variant="body2" color="text.secondary">
++                                    {vaccines.length === 0 ? 'Todavía no cargaste ninguna.' : `${vaccines.length} ${vaccines.length === 1 ? 'dosis registrada' : 'dosis registradas'}`}
++                                </Typography>
++                            </Box>
++                        </Box>
++
++                        {vaccines.length === 0 ? (
++                            <Box sx={{ textAlign: 'center', py: 3 }}>
++                                <Typography color="text.secondary" sx={{ mb: 2 }}>
++                                    Empezá agregando las que recuerdes. Si no sabés la fecha, podés dejarla vacía.
++                                </Typography>
++                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>Agregar rápido:</Typography>
++                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
++                                    {QUICK_PICKS.filter((q) => VACCINE_CATALOG.includes(q)).map((name) => (
++                                        <Chip key={name} label={name} clickable variant="outlined" color="primary" onClick={() => openNew(name)} />
++                                    ))}
++                                </Box>
++                            </Box>
++                        ) : (
++                            <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
++                                {vaccines.map((v) => (
++                                    <Box
++                                        component="li" key={v.id_vaccine}
++                                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.75, borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 0 } }}
++                                    >
++                                        <Box sx={{ flex: 1, minWidth: 0 }}>
++                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
++                                                <Typography sx={{ fontWeight: 700 }}>{v.name}</Typography>
++                                                {v.dose && <Chip size="small" label={v.dose} sx={{ bgcolor: 'primary.light', color: 'primary.main' }} />}
++                                            </Box>
++                                            <Typography variant="body2" color="text.secondary">
++                                                {v.applied_on ? `Aplicada el ${formatDay(v.applied_on)}` : 'Fecha no registrada'}
++                                                {v.next_dose_on ? ` · Próxima: ${formatDay(v.next_dose_on)}` : ''}
++                                            </Typography>
++                                            {(v.place || v.notes) && (
++                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
++                                                    {v.place && <><PlaceOutlinedIcon sx={{ fontSize: 14 }} />{v.place}</>}
++                                                    {v.place && v.notes ? ' · ' : ''}{v.notes}
++                                                </Typography>
++                                            )}
++                                        </Box>
++                                        <Tooltip title="Editar">
++                                            <IconButton size="small" aria-label={`Editar ${v.name}`} onClick={() => openEdit(v)}><EditOutlinedIcon fontSize="small" /></IconButton>
++                                        </Tooltip>
++                                        <Tooltip title="Eliminar">
++                                            <IconButton size="small" aria-label={`Eliminar ${v.name}`} onClick={() => setToDelete(v)}><DeleteOutlineOutlinedIcon fontSize="small" /></IconButton>
++                                        </Tooltip>
++                                    </Box>
++                                ))}
++                            </Box>
++                        )}
++                    </Paper>
++
++                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
++                        <LockOutlinedIcon sx={{ fontSize: 14 }} />
++                        Tu carnet lo ven solo vos y los médicos que te atienden. Este registro es informativo y no reemplaza tu carnet oficial.
++                    </Typography>
++                </Box>
++            )}
++
++            <VaccineFormDialog open={dialogOpen} vaccine={editing} initialName={initialName} onClose={() => setDialogOpen(false)} onSaved={handleSaved} />
++            <ConfirmDialog
++                open={Boolean(toDelete)} title="Eliminar vacuna" loading={deleting}
++                message={toDelete ? `Se va a eliminar "${toDelete.name}"${toDelete.dose ? ` (${toDelete.dose})` : ''} de tu carnet. Esta acción no se puede deshacer.` : ''}
++                onConfirm={handleDelete} onClose={() => setToDelete(null)}
++            />
++
++            <Snackbar open={Boolean(feedback)} autoHideDuration={3500} onClose={() => setFeedback('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
++                <Alert severity="success" variant="filled" onClose={() => setFeedback('')} sx={{ width: '100%' }}>{feedback}</Alert>
++            </Snackbar>
++        </Box>
++    );
++};
++
++export default Vaccines;
+diff --git a/frontend/src/services/api.js b/frontend/src/services/api.js
+index 9b65b6b..7d366e8 100644
+--- a/frontend/src/services/api.js
++++ b/frontend/src/services/api.js
+@@ -303,7 +303,9 @@ const appointmentResponse = async (response) => {
+         } catch {
+             // la respuesta no traía JSON: dejamos el mensaje por defecto
+         }
+-        throw new Error(message);
++        const error = new Error(message);
++        error.status = response.status;
++        throw error;
+     }
+     return response;
+ };
+@@ -356,3 +358,32 @@ export const fetchAppointmentFile = async (fileId, { download = false } = {}) =>
+     });
+     return (await appointmentResponse(response)).blob();
+ };
++
++
++// ---------- Datos personales, contactos de emergencia, vacunas y datos del médico ----------
++// Los GET de "details" devuelven 404 cuando todavía no existe el perfil básico: lo dejamos pasar como null.
++const orNull = async (promise) => {
++    try {
++        return await promise;
++    } catch (err) {
++        if (err.status === 404) return null;
++        throw err;
++    }
++};
++
++export const getPatientDetails = () => orNull(requestJson("/patient/details"));
++export const savePatientDetails = (data) => requestJson("/patient/details", "PUT", data);
++
++export const getEmergencyContacts = () => requestJson("/patient/emergency-contacts");
++export const addEmergencyContact = (data) => requestJson("/patient/emergency-contacts", "POST", data);
++export const updateEmergencyContact = (id, data) => requestJson(`/patient/emergency-contacts/${id}`, "PATCH", data);
++export const deleteEmergencyContact = (id) => requestJson(`/patient/emergency-contacts/${id}`, "DELETE");
++
++// La barra final de "/vaccines/" es importante: así está definida la ruta en Flask
++export const getVaccines = () => requestJson("/vaccines/");
++export const addVaccine = (data) => requestJson("/vaccines/", "POST", data);
++export const updateVaccine = (id, data) => requestJson(`/vaccines/${id}`, "PATCH", data);
++export const deleteVaccine = (id) => requestJson(`/vaccines/${id}`, "DELETE");
++
++export const getDoctorDetails = () => orNull(requestJson("/doctor/details"));
++export const saveDoctorDetails = (data) => requestJson("/doctor/details", "PUT", data);
