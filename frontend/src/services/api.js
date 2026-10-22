@@ -311,7 +311,9 @@ const appointmentResponse = async (response) => {
         } catch {
             // la respuesta no traía JSON: dejamos el mensaje por defecto
         }
-        throw new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
     }
     return response;
 };
@@ -364,3 +366,32 @@ export const fetchAppointmentFile = async (fileId, { download = false } = {}) =>
     });
     return (await appointmentResponse(response)).blob();
 };
+
+
+// ---------- Datos personales, contactos de emergencia, vacunas y datos del médico ----------
+// Los GET de "details" devuelven 404 cuando todavía no existe el perfil básico: lo dejamos pasar como null.
+const orNull = async (promise) => {
+    try {
+        return await promise;
+    } catch (err) {
+        if (err.status === 404) return null;
+        throw err;
+    }
+};
+
+export const getPatientDetails = () => orNull(requestJson("/patient/details"));
+export const savePatientDetails = (data) => requestJson("/patient/details", "PUT", data);
+
+export const getEmergencyContacts = () => requestJson("/patient/emergency-contacts");
+export const addEmergencyContact = (data) => requestJson("/patient/emergency-contacts", "POST", data);
+export const updateEmergencyContact = (id, data) => requestJson(`/patient/emergency-contacts/${id}`, "PATCH", data);
+export const deleteEmergencyContact = (id) => requestJson(`/patient/emergency-contacts/${id}`, "DELETE");
+
+// La barra final de "/vaccines/" es importante: así está definida la ruta en Flask
+export const getVaccines = () => requestJson("/vaccines/");
+export const addVaccine = (data) => requestJson("/vaccines/", "POST", data);
+export const updateVaccine = (id, data) => requestJson(`/vaccines/${id}`, "PATCH", data);
+export const deleteVaccine = (id) => requestJson(`/vaccines/${id}`, "DELETE");
+
+export const getDoctorDetails = () => orNull(requestJson("/doctor/details"));
+export const saveDoctorDetails = (data) => requestJson("/doctor/details", "PUT", data);

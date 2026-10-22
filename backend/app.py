@@ -10,12 +10,15 @@ from routes.medical_record_routes import record_bp
 from routes.medical_consultation_routes import consultation_bp
 from routes.treatment_routes import treatment_bp
 from routes.medication_intake_routes import intake_bp
-from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification, medication, appointment, appointment_file, appointment_note
+from models import user, patient, doctor, medical_record, medical_consultation, treatment, medication_intake, treatment_history, notification, medication, appointment, appointment_file, appointment_note, patient_details, emergency_contact, patient_health, patient_vaccine, doctor_details
 from models.medication import seed_medications
 from routes.notification_routes import notification_bp
 from routes.medication_routes import medication_bp
 from scheduler import start_scheduler
 from routes.appointment_routes import appointment_bp
+from routes.patient_details_routes import patient_details_bp
+from routes.doctor_details_routes import doctor_details_bp
+from routes.vaccine_routes import vaccine_bp
 
 def create_app():
     app = Flask(__name__)
@@ -35,6 +38,9 @@ def create_app():
     app.register_blueprint(notification_bp)
     app.register_blueprint(medication_bp)
     app.register_blueprint(appointment_bp)
+    app.register_blueprint(patient_details_bp)
+    app.register_blueprint(doctor_details_bp)
+    app.register_blueprint(vaccine_bp)
 
     @app.errorhandler(413)
     def file_too_large(_error):

@@ -6,6 +6,7 @@ from routes.auth_routes import role_required
 from models.doctor import Doctor
 from models.medical_record import MedicalRecord
 from models.medical_consultation import MedicalConsultation
+from sqlalchemy.exc import IntegrityError
 import qrcode, io, base64
 
 patient_bp = Blueprint("patient", __name__, url_prefix="/api/patient")
@@ -18,10 +19,11 @@ def create_or_update_profile():
     data = request.get_json(silent=True) or {}
 
     dni = (data.get("dni") or "").strip()
-    health_insurance = (data.get("health_insurance") or "").strip()
-    plan = (data.get("plan") or "").strip()
-    member_number = (data.get("member_number") or "").strip()
-    address = (data.get("address") or "").strip()
+    # Los campos opcionales vacíos se guardan como NULL (member_number es UNIQUE: dos "" chocarían entre sí)
+    health_insurance = (data.get("health_insurance") or "").strip() or None
+    plan = (data.get("plan") or "").strip() or None
+    member_number = (data.get("member_number") or "").strip() or None
+    address = (data.get("address") or "").strip() or None
 
     if not dni:
         return jsonify({"message": "Faltan datos obligatorios para completar el perfil"}), 400
@@ -49,7 +51,11 @@ def create_or_update_profile():
         db.session.add(patient)
         message = "Perfil de paciente creado exitosamente"
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Ese DNI o número de afiliado ya está registrado en otra cuenta."}), 400
     return jsonify({"message": message, "profile": patient.to_json()}), 200
 
 @patient_bp.route("/profile", methods=["GET"])
