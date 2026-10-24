@@ -16,12 +16,13 @@ import FormSection, { fullWidth } from '../components/profile/FormSection';
 import EmergencyContacts from '../components/profile/EmergencyContacts';
 import { SEX_OPTIONS, MARITAL_OPTIONS, ageFromDay, todayInput, str, orNullValue } from '../components/profile/format';
 
-const PATIENT_DETAIL_FIELDS = ['first_name', 'last_name', 'birth_date', 'sex', 'marital_status', 'occupation', 'phone', 'locality', 'province', 'postal_code'];
+// Quitamos first_name y last_name de acá porque ahora usamos el nombre global del usuario
+const PATIENT_DETAIL_FIELDS = ['birth_date', 'sex', 'marital_status', 'occupation', 'phone', 'locality', 'province', 'postal_code'];
 const DOCTOR_PRO_FIELDS = ['workplace', 'office_address', 'attention_hours', 'accepted_insurances', 'bio'];
 
-// Pantalla "Datos personales" del paciente y "Datos profesionales" del médico
 const CompleteProfile = () => {
-    const { user } = useContext(AuthContext);
+    // Agregamos 'login' para poder actualizar el nombre en vivo en el menú superior
+    const { user, login } = useContext(AuthContext);
     const navigate = useNavigate();
     const isPatient = user?.role === 'Paciente';
 
@@ -31,10 +32,14 @@ const CompleteProfile = () => {
     const [feedback, setFeedback] = useState('');
     const [hasProfile, setHasProfile] = useState(false);
 
-    // Paciente: lo básico (tabla patients) + datos ampliados
+    // Estado del nombre unificado (viene del registro)
+    const [name, setName] = useState(user?.username || '');
+
+    // Paciente
     const [base, setBase] = useState({ dni: '', health_insurance: '', plan: '', member_number: '', address: '' });
     const [details, setDetails] = useState(Object.fromEntries(PATIENT_DETAIL_FIELDS.map((f) => [f, ''])));
     const [email, setEmail] = useState('');
+    
     // Médico
     const [pro, setPro] = useState({ specialty: '', license_number: '' });
     const [place, setPlace] = useState(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, ''])));
@@ -46,6 +51,10 @@ const CompleteProfile = () => {
                 const profile = await getProfile(user.role);
                 if (profile) {
                     setHasProfile(true);
+                    
+                    // Cargamos el nombre que viene de la base de datos (tabla users)
+                    setName(profile.username || user?.username || '');
+
                     if (isPatient) {
                         setBase({
                             dni: str(profile.dni), health_insurance: str(profile.health_insurance), plan: str(profile.plan),
@@ -75,19 +84,26 @@ const CompleteProfile = () => {
         e.preventDefault();
         setError('');
 
+        if (!name.trim()) return setError('El nombre y apellido son obligatorios.');
         if (isPatient && base.dni.length < 7) return setError('El DNI debe tener al menos 7 dígitos.');
         if (!isPatient && pro.license_number.trim().length < 4) return setError('Ingresá una matrícula válida.');
 
         setSaving(true);
         try {
             if (isPatient) {
-                await createProfile(base, 'Paciente');
+                // Enviamos el nombre junto con los datos base para que el backend actualice el usuario
+                await createProfile({ ...base, username: name.trim() }, 'Paciente');
                 const payload = Object.fromEntries(PATIENT_DETAIL_FIELDS.map((f) => [f, orNullValue(details[f])]));
                 await savePatientDetails(payload);
             } else {
-                await createProfile(pro, 'Doctor');
+                await createProfile({ ...pro, username: name.trim() }, 'Doctor');
                 await saveDoctorDetails(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, orNullValue(place[f])])));
             }
+            
+            // Actualizamos la sesión en React para que el nombre cambie instantáneamente en el navbar
+            const updatedUser = { ...user, username: name.trim() };
+            login(updatedUser, localStorage.getItem('token'));
+
             setHasProfile(true);
             setFeedback('Datos guardados correctamente.');
         } catch (err) {
@@ -127,8 +143,14 @@ const CompleteProfile = () => {
                     {isPatient ? (
                         <>
                             <FormSection icon={<PersonOutlineIcon />} title="Datos personales" description="Cómo figurás en tu ficha.">
-                                <TextField label="Nombre" value={details.first_name} onChange={setD('first_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
-                                <TextField label="Apellido" value={details.last_name} onChange={setD('last_name')} slotProps={{ htmlInput: { maxLength: 60 } }} />
+                                {/* Único campo de nombre (reemplaza a first_name y last_name) */}
+                                <TextField 
+                                    label="Nombre y apellido" 
+                                    required 
+                                    value={name} 
+                                    onChange={(e) => setName(e.target.value)} 
+                                    sx={fullWidth} 
+                                />
                                 <TextField
                                     label="DNI" required value={base.dni}
                                     onChange={(e) => setBase((prev) => ({ ...prev, dni: e.target.value.replace(/[^0-9]/g, '') }))}
@@ -168,6 +190,14 @@ const CompleteProfile = () => {
                     ) : (
                         <>
                             <FormSection icon={<BadgeOutlinedIcon />} title="Identificación profesional">
+                                {/* Agregamos el campo de nombre también para el médico */}
+                                <TextField 
+                                    label="Nombre y apellido" 
+                                    required 
+                                    value={name} 
+                                    onChange={(e) => setName(e.target.value)} 
+                                    sx={fullWidth} 
+                                />
                                 <TextField label="Especialidad" required value={pro.specialty} onChange={(e) => setPro((p) => ({ ...p, specialty: e.target.value }))} slotProps={{ htmlInput: { maxLength: 50 } }} />
                                 <TextField label="Número de matrícula" required value={pro.license_number} onChange={(e) => setPro((p) => ({ ...p, license_number: e.target.value }))} slotProps={{ htmlInput: { maxLength: 20 } }} />
                             </FormSection>
