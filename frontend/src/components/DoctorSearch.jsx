@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { Box, Typography, Button, TextField, Paper, Alert, Avatar, InputAdornment, Chip, CircularProgress } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { 
+    Box, Typography, Button, TextField, Paper, Alert, Avatar, 
+    InputAdornment, Autocomplete, Divider, Select, MenuItem 
+} from '@mui/material';
 import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -10,18 +13,14 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { getPatientByDni, createConsultation, generateAISummary } from '../services/api';
-import NewTreatmentForm from './NewTreatmentForm';
+import { getPatientByDni, createConsultation, getMedications } from '../services/api';
 import TreatmentManager from './TreatmentManager';
-import PatientExtraInfo from './PatientExtraInfo';
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
-import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || 'P';
 
-// Tarjetita con un dato de la ficha médica
 const InfoTile = ({ icon, label, value, warn = false }) => (
     <Box
         sx={{
@@ -49,25 +48,37 @@ const DoctorSearch = ({ onConsultationCreated }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const [aiSummary, setAiSummary] = useState(null);
-    const [loadingAi, setLoadingAi] = useState(false);
-    const [aiError, setAiError] = useState('');
-
-    // Estados para la nueva consulta
+    // Estados para el formulario unificado
     const [showConsultationForm, setShowConsultationForm] = useState(false);
     const [location, setLocation] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
     const [startingConsultation, setStartingConsultation] = useState(false);
-    const [activeConsultationId, setActiveConsultationId] = useState(null);
     const [consultationSuccess, setConsultationSuccess] = useState('');
     const [treatmentsVersion, setTreatmentsVersion] = useState(0);
 
+    // Estados para el tratamiento
+    const [medication, setMedication] = useState('');
+    const [doseAmount, setDoseAmount] = useState('');
+    const [doseUnit, setDoseUnit] = useState('mg');
+    const [frequency, setFrequency] = useState('');
+    const [duration, setDuration] = useState('');
+    const [catalog, setCatalog] = useState([]);
+
+    useEffect(() => {
+        getMedications().then(data => {
+            if(Array.isArray(data)) setCatalog(data);
+        }).catch(() => console.log('Error cargando catálogo'));
+    }, []);
+
     const resetConsultation = () => {
         setShowConsultationForm(false);
-        setActiveConsultationId(null);
-        setConsultationSuccess('');
         setLocation('');
         setDiagnosis('');
+        setMedication('');
+        setDoseAmount('');
+        setDoseUnit('mg');
+        setFrequency('');
+        setDuration('');
     };
 
     const handleSearch = async (dniToSearch) => {
@@ -78,8 +89,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setPatientData(null);
         setIsScanning(false);
         resetConsultation();
-        setAiSummary(null);
-        setAiError('');
+        setConsultationSuccess('');
 
         try {
             const data = await getPatientByDni(dniToSearch);
@@ -96,10 +106,16 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         }
     };
 
-    const handleStartConsultation = async () => {
-        if (!location || !diagnosis) {
-            setError('Por favor, ingresá el lugar de atención y el diagnóstico.');
-            return;
+    const handleStartConsultation = async (e) => {
+        e.preventDefault();
+
+        if (medication || doseAmount || frequency || duration) {
+            if (!medication || !doseAmount || !frequency || !duration) {
+                return setError('Para recetar un tratamiento, completá todos sus campos (medicamento, dosis, frecuencia y duración).');
+            }
+            if (Number(doseAmount) <= 0 || Number(frequency) <= 0 || Number(duration) <= 0) {
+                return setError('La dosis, frecuencia y duración deben ser mayores a 0.');
+            }
         }
 
         setStartingConsultation(true);
@@ -107,26 +123,44 @@ const DoctorSearch = ({ onConsultationCreated }) => {
 
         try {
             const data = await createConsultation(patientData.id_patient, { location, diagnosis });
-            setActiveConsultationId(data.consultation.id_consultation);
-            setConsultationSuccess('Consulta registrada. Ahora podés recetar un tratamiento.');
+            const newConsultationId = data.consultation.id_consultation;
+
+            if (medication) {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:5000/api/treatment/${newConsultationId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        medication: medication.trim(),
+                        dose: `${doseAmount}${doseUnit}`,
+                        frequency_hours: parseInt(frequency),
+                        duration_days: parseInt(duration)
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.message || 'Error al guardar el tratamiento');
+                }
+            }
+
+            setConsultationSuccess(
+                medication 
+                    ? 'Consulta y tratamiento registrados exitosamente.' 
+                    : 'Consulta médica registrada exitosamente.'
+            );
+            
             if (onConsultationCreated) onConsultationCreated();
+            setTreatmentsVersion((v) => v + 1);
+            resetConsultation();
+
         } catch (err) {
-            setError(err.message || 'Error al guardar la consulta');
+            setError(err.message || 'Error al procesar la solicitud');
         } finally {
             setStartingConsultation(false);
-        }
-    };
-
-    const handleGenerateSummary = async () => {
-        setLoadingAi(true);
-        setAiError('');
-        try {
-            const data = await generateAISummary(patientData.id_patient);
-            setAiSummary(data.summary);
-        } catch (err) {
-            setAiError(err.message || 'Error al generar el resumen.');
-        } finally {
-            setLoadingAi(false);
         }
     };
 
@@ -136,7 +170,6 @@ const DoctorSearch = ({ onConsultationCreated }) => {
 
     return (
         <Box>
-            {/* ===== Tarjeta de búsqueda (como en el boceto) ===== */}
             <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3.5 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                     <IconBadge tone="blue" size={48}><PersonSearchOutlinedIcon /></IconBadge>
@@ -170,88 +203,42 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                             htmlInput: { maxLength: 8, inputMode: 'numeric' },
                         }}
                     />
-                    <Button
-                        type="submit"
-                        variant="contained"
-                        startIcon={<SearchRoundedIcon />}
-                        disabled={loading || !dniInput}
-                        sx={{ py: 1.7 }}
-                    >
+                    <Button type="submit" variant="contained" startIcon={<SearchRoundedIcon />} disabled={loading || !dniInput} sx={{ py: 1.7 }}>
                         Buscar
                     </Button>
-
                     <Typography variant="body2" color="text.secondary">o</Typography>
-
-                    <Button
-                        variant="outlined"
-                        startIcon={isScanning ? <CloseRoundedIcon /> : <QrCodeScannerOutlinedIcon />}
-                        onClick={() => setIsScanning((v) => !v)}
-                        sx={{ py: 1.7 }}
-                    >
+                    <Button variant="outlined" startIcon={isScanning ? <CloseRoundedIcon /> : <QrCodeScannerOutlinedIcon />} onClick={() => setIsScanning((v) => !v)} sx={{ py: 1.7 }}>
                         {isScanning ? 'Cancelar escáner' : 'Escanear QR'}
                     </Button>
                 </Box>
 
                 {isScanning && (
-                    <Box
-                        sx={{
-                            maxWidth: 320,
-                            mx: 'auto',
-                            mt: 3,
-                            borderRadius: 3,
-                            overflow: 'hidden',
-                            border: '2px solid',
-                            borderColor: 'primary.main',
-                        }}
-                    >
+                    <Box sx={{ maxWidth: 320, mx: 'auto', mt: 3, borderRadius: 3, overflow: 'hidden', border: '2px solid', borderColor: 'primary.main' }}>
                         <Scanner
                             onScan={(result) => {
-                                if (result && result.length > 0) {
-                                    handleSearch(result[0].rawValue);
-                                }
+                                if (result && result.length > 0) handleSearch(result[0].rawValue);
                             }}
                             paused={loading}
                         />
                     </Box>
                 )}
-
                 {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
             </Paper>
 
-            {/* ===== Ficha del paciente ===== */}
             {patientData && (
                 <Paper elevation={0} sx={{ ...cardSx, mt: 3, overflow: 'hidden' }}>
-                    <Box
-                        sx={{
-                            p: { xs: 2.5, sm: 3 },
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2,
-                            borderBottom: '1px solid',
-                            borderColor: 'divider',
-                            background: 'linear-gradient(90deg, #F1F7FD 0%, #F0FAF7 100%)',
-                        }}
-                    >
-                        <Avatar
-                            sx={{ width: 52, height: 52, bgcolor: '#fff', color: colors.teal, fontWeight: 700, border: '1px solid', borderColor: 'divider' }}
-                        >
+                    <Box sx={{ p: { xs: 2.5, sm: 3 }, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid', borderColor: 'divider', background: 'linear-gradient(90deg, #F1F7FD 0%, #F0FAF7 100%)' }}>
+                        <Avatar sx={{ width: 52, height: 52, bgcolor: '#fff', color: colors.teal, fontWeight: 700, border: '1px solid', borderColor: 'divider' }}>
                             {initials(patientData.name)}
                         </Avatar>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography variant="h6" noWrap>{patientData.name || 'Paciente'}</Typography>
                             <Typography variant="body2" color="text.secondary">
                                 DNI {patientData.dni}
-                                {patientData.health_insurance
-                                    ? ` · ${patientData.health_insurance}${patientData.plan ? ` ${patientData.plan}` : ''}`
-                                    : ''}
+                                {patientData.health_insurance ? ` · ${patientData.health_insurance}${patientData.plan ? ` ${patientData.plan}` : ''}` : ''}
                             </Typography>
                         </Box>
-                        <Button
-                            size="small"
-                            color="inherit"
-                            onClick={() => { setPatientData(null); resetConsultation(); }}
-                            sx={{ letterSpacing: 0, textTransform: 'none', color: 'text.secondary' }}
-                        >
+                        <Button size="small" color="inherit" onClick={() => { setPatientData(null); resetConsultation(); setConsultationSuccess(''); }} sx={{ letterSpacing: 0, textTransform: 'none', color: 'text.secondary' }}>
                             Cerrar ficha
                         </Button>
                     </Box>
@@ -259,119 +246,79 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                     <Box sx={{ p: { xs: 2.5, sm: 3 } }}>
                         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Ficha médica</Typography>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
-                            <InfoTile
-                                icon={<BloodtypeOutlinedIcon fontSize="small" />}
-                                label="Grupo sanguíneo"
-                                value={record?.blood_group || 'No especificado'}
-                            />
-                            <InfoTile
-                                icon={<WarningAmberRoundedIcon fontSize="small" />}
-                                label="Alergias"
-                                value={hasAllergies ? allergies : 'Ninguna'}
-                                warn={hasAllergies}
-                            />
-                            <InfoTile
-                                icon={<AssignmentOutlinedIcon fontSize="small" />}
-                                label="Antecedentes"
-                                value={record?.antecedents || 'Ninguno'}
-                            />
+                            <InfoTile icon={<BloodtypeOutlinedIcon fontSize="small" />} label="Grupo sanguíneo" value={record?.blood_group || 'No especificado'} />
+                            <InfoTile icon={<WarningAmberRoundedIcon fontSize="small" />} label="Alergias" value={hasAllergies ? allergies : 'Ninguna'} warn={hasAllergies} />
+                            <InfoTile icon={<AssignmentOutlinedIcon fontSize="small" />} label="Antecedentes" value={record?.antecedents || 'Ninguno'} />
                         </Box>
-
-                        {/* ===== Sección de Resumen con IA ===== */}
-                        <Box sx={{ mb: 3 }}>
-                            {!aiSummary && !loadingAi && (
-                                <Button 
-                                    variant="outlined" 
-                                    color="secondary" 
-                                    startIcon={<AutoAwesomeRoundedIcon />}
-                                    onClick={handleGenerateSummary}
-                                    sx={{ borderRadius: 2, bgcolor: '#F8FAFC' }}
-                                >
-                                    Generar resumen clínico con IA
-                                </Button>
-                            )}
-
-                            {loadingAi && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'secondary.main', p: 1 }}>
-                                    <CircularProgress size={20} color="secondary" />
-                                    <Typography variant="body2" fontWeight={600}>Analizando historial del paciente...</Typography>
-                                </Box>
-                            )}
-
-                            {aiError && <Alert severity="error" sx={{ mb: 2 }}>{aiError}</Alert>}
-
-                            {aiSummary && (
-                                <Paper elevation={0} sx={{ p: 2.5, bgcolor: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 3 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                        <AutoAwesomeRoundedIcon sx={{ color: '#7C3AED', fontSize: 20 }} />
-                                        <Typography variant="subtitle2" sx={{ color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            Resumen Inteligente
-                                        </Typography>
-                                        <Chip label="Generado por IA" size="small" sx={{ ml: 'auto', bgcolor: '#EDE9FE', color: '#5B21B6', fontWeight: 600, fontSize: '0.7rem' }} />
-                                    </Box>
-                                    <Typography variant="body2" sx={{ color: '#4C1D95', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
-                                        {aiSummary}
-                                    </Typography>
-                                </Paper>
-                            )}
-                        </Box>
-                        {/* Datos adicionales que cargó el paciente (peso, condiciones, contactos de emergencia, vacunas...) */}
-                        <PatientExtraInfo patientData={patientData} />
 
                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
 
-                        {/* Paso 1: botón para iniciar la consulta */}
-                        {!showConsultationForm && !activeConsultationId && (
-                            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setShowConsultationForm(true)}>
+                        {consultationSuccess && <Alert severity="success" sx={{ mt: 2, mb: 2 }} onClose={() => setConsultationSuccess('')}>{consultationSuccess}</Alert>}
+
+                        {!showConsultationForm && (
+                            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => { setShowConsultationForm(true); setConsultationSuccess(''); }}>
                                 Registrar nueva consulta
                             </Button>
                         )}
 
-                        {/* Paso 2: formulario de la consulta */}
-                        {showConsultationForm && !activeConsultationId && (
-                            <Box sx={{ p: 3, bgcolor: '#F4F9FD', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                        {showConsultationForm && (
+                            <Box component="form" onSubmit={handleStartConsultation} sx={{ p: 3, bgcolor: '#F4F9FD', borderRadius: 3, border: '1px solid', borderColor: 'divider', mt: 2 }}>
+                                
                                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                                    Detalles de la atención
+                                    1. Detalles de la atención
                                 </Typography>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 2 }}>
-                                    <TextField
-                                        fullWidth label="Lugar de atención"
-                                        placeholder="Ej: Consultorio 3, Guardia"
-                                        value={location} onChange={(e) => setLocation(e.target.value)}
-                                    />
-                                    <TextField
-                                        fullWidth label="Diagnóstico clínico" multiline minRows={2}
-                                        placeholder="Ej: Faringitis aguda. Se receta antibiótico."
-                                        value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)}
-                                    />
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 2, mb: 3 }}>
+                                    <TextField fullWidth label="Lugar de atención" placeholder="Ej: Consultorio 3, Guardia" required value={location} onChange={(e) => setLocation(e.target.value)} />
+                                    <TextField fullWidth label="Diagnóstico clínico" placeholder="Ej: Faringitis aguda. Se receta antibiótico." required multiline minRows={2} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
                                 </Box>
-                                <Box sx={{ mt: 2.5, display: 'flex', gap: 1.5 }}>
-                                    <Button variant="contained" onClick={handleStartConsultation} disabled={startingConsultation}>
-                                        {startingConsultation ? 'Guardando...' : 'Guardar diagnóstico'}
+
+                                <Divider sx={{ my: 3 }} />
+
+                                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                                    2. Recetar tratamiento (Opcional)
+                                </Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                                    <Autocomplete
+                                        freeSolo
+                                        options={catalog}
+                                        groupBy={(option) => option.category}
+                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                                        inputValue={medication}
+                                        onInputChange={(e, value) => setMedication(value)}
+                                        renderInput={(params) => <TextField {...params} label="Medicamento" placeholder="Escribí o elegí de la lista" />}
+                                    />
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField 
+                                            fullWidth 
+                                            label="Dosis" 
+                                            type="number" 
+                                            placeholder="Ej: 600" 
+                                            value={doseAmount} 
+                                            onChange={(e) => setDoseAmount(e.target.value)}
+                                            slotProps={{ htmlInput: { min: 0.1, step: "any" } }}
+                                        />
+                                        <TextField 
+                                            select 
+                                            value={doseUnit} 
+                                            onChange={(e) => setDoseUnit(e.target.value)}
+                                            sx={{ minWidth: 80 }}
+                                        >
+                                            <MenuItem value="mg">mg</MenuItem>
+                                            <MenuItem value="g">g</MenuItem>
+                                        </TextField>
+                                    </Box>
+                                    <TextField fullWidth label="Frecuencia (horas)" type="number" value={frequency} onChange={(e) => setFrequency(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 8" />
+                                    <TextField fullWidth label="Duración (días)" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 7" />
+                                </Box>
+
+                                <Box sx={{ mt: 3.5, display: 'flex', gap: 1.5 }}>
+                                    <Button type="submit" variant="contained" disabled={startingConsultation}>
+                                        {startingConsultation ? 'Guardando...' : 'Guardar y finalizar'}
                                     </Button>
-                                    <Button color="inherit" onClick={() => { setShowConsultationForm(false); setError(''); }}>
+                                    <Button color="inherit" onClick={() => { resetConsultation(); setError(''); }}>
                                         Cancelar
                                     </Button>
                                 </Box>
-                            </Box>
-                        )}
-
-                        {/* Paso 3: consulta guardada, se abre la receta */}
-                        {activeConsultationId && (
-                            <Box>
-                                {consultationSuccess && <Alert severity="success" sx={{ mb: 2 }}>{consultationSuccess}</Alert>}
-
-                                <NewTreatmentForm
-                                    consultationId={activeConsultationId}
-                                    onTreatmentAdded={() => {
-                                        setConsultationSuccess('¡Tratamiento asignado! El paciente ya tiene sus recordatorios.');
-                                        setTreatmentsVersion((v) => v + 1);
-                                    }}
-                                />
-
-                                <Button variant="outlined" color="inherit" sx={{ mt: 2 }} onClick={resetConsultation}>
-                                    Finalizar consulta
-                                </Button>
                             </Box>
                         )}
                     </Box>
