@@ -116,13 +116,23 @@ def get_patient_by_qr(patient_id):
     if not patient:
         return jsonify({"message": "Paciente no encontrado o código QR inválido."}), 404
 
-    medical_record = MedicalRecord.query.filter_by(id_patient=patient.id_patient).first()
+    # Armamos la misma estructura que usamos en la búsqueda por DNI
+    record_data = None
+    if patient.medical_record:
+        record_data = {
+            "blood_group": patient.medical_record.blood_group,
+            "allergies": patient.medical_record.allergies,
+            "antecedents": patient.medical_record.antecedents
+        }
 
-    response_data = {
-        "patient": patient.to_json(),
-        "medical_record": medical_record.to_json() if medical_record else None}
-
-    return jsonify(response_data), 200
+    return jsonify({
+        "id_patient": patient.id_patient,
+        "name": patient.user.username,
+        "dni": patient.dni,
+        "health_insurance": patient.health_insurance,
+        "plan": patient.plan,
+        "medical_record": record_data
+    }), 200
 
 @patient_bp.route("/history", methods=["GET"])
 @jwt_required()

@@ -13,7 +13,7 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { getPatientByDni, createConsultation, getMedications } from '../services/api';
+import { getPatientByDni, getPatientByQr, createConsultation, getMedications } from '../services/api';
 import TreatmentManager from './TreatmentManager';
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
@@ -81,8 +81,8 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setDuration('');
     };
 
-    const handleSearch = async (dniToSearch) => {
-        if (!dniToSearch) return;
+    const handleSearch = async (searchValue, isQr = false) => {
+        if (!searchValue) return;
 
         setLoading(true);
         setError('');
@@ -92,9 +92,13 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setConsultationSuccess('');
 
         try {
-            const data = await getPatientByDni(dniToSearch);
+            // Si escaneamos, llamamos al endpoint del QR. Si tipeamos, al del DNI.
+            const data = isQr 
+                ? await getPatientByQr(searchValue) 
+                : await getPatientByDni(searchValue);
+
             if (!data) {
-                setError('No se encontró ningún paciente con ese DNI.');
+                setError(isQr ? 'Código QR inválido.' : 'No se encontró ningún paciente con ese DNI.');
             } else {
                 setPatientData(data);
             }
@@ -186,7 +190,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                 </Typography>
                 <Box
                     component="form"
-                    onSubmit={(e) => { e.preventDefault(); handleSearch(dniInput); }}
+                    onSubmit={(e) => { e.preventDefault(); handleSearch(dniInput, false); }}
                     sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}
                 >
                     <TextField
@@ -216,7 +220,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                     <Box sx={{ maxWidth: 320, mx: 'auto', mt: 3, borderRadius: 3, overflow: 'hidden', border: '2px solid', borderColor: 'primary.main' }}>
                         <Scanner
                             onScan={(result) => {
-                                if (result && result.length > 0) handleSearch(result[0].rawValue);
+                                if (result && result.length > 0) handleSearch(result[0].rawValue, true);
                             }}
                             paused={loading}
                         />

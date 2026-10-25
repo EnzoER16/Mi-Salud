@@ -395,3 +395,12 @@ export const deleteVaccine = (id) => requestJson(`/vaccines/${id}`, "DELETE");
 
 export const getDoctorDetails = () => orNull(requestJson("/doctor/details"));
 export const saveDoctorDetails = (data) => requestJson("/doctor/details", "PUT", data);
+
+export const getPatientByQr = async (patientId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/patient/qr/${patientId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};

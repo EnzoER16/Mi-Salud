@@ -119,7 +119,7 @@ const Dashboard = () => {
                                         bgcolor: '#fff',
                                     }}
                                 >
-                                    <QRCodeSVG value={profileData.dni} size={160} level="H" />
+                                    <QRCodeSVG value={profileData.id_patient} size={160} level="H" />
                                 </Box>
                                 <Typography fontWeight={700}>DNI: {profileData.dni}</Typography>
                             
