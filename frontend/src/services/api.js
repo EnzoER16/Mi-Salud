@@ -211,6 +211,24 @@ export const checkIntake = async (intakeId) => {
     return handleResponse(response);
 };
 
+export const skipIntake = async (intakeId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/intake/${intakeId}/skip`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
+export const postponeIntake = async (intakeId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/intake/${intakeId}/postpone`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    return handleResponse(response);
+};
+
 export const getMyTreatments = async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_URL}/treatment/my-treatments`, {
