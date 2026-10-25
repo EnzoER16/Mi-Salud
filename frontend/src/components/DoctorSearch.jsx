@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
     Box, Typography, Button, TextField, Paper, Alert, Avatar, 
-    InputAdornment, Autocomplete, Divider, Select, MenuItem 
+    InputAdornment, Autocomplete, Divider, Select, MenuItem, IconButton 
 } from '@mui/material';
 import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
@@ -12,6 +12,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { getPatientByDni, getPatientByQr, createConsultation, getMedications } from '../services/api';
 import TreatmentManager from './TreatmentManager';
@@ -41,6 +42,9 @@ const InfoTile = ({ icon, label, value, warn = false }) => (
     </Box>
 );
 
+// Plantilla vacía para un nuevo medicamento
+const emptyTreatment = { medication: '', doseAmount: '', doseUnit: 'mg', frequency: '', duration: '' };
+
 const DoctorSearch = ({ onConsultationCreated }) => {
     const [dniInput, setDniInput] = useState('');
     const [isScanning, setIsScanning] = useState(false);
@@ -48,7 +52,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Estados para el formulario unificado
+    // Estados para la consulta
     const [showConsultationForm, setShowConsultationForm] = useState(false);
     const [location, setLocation] = useState('');
     const [diagnosis, setDiagnosis] = useState('');
@@ -56,12 +60,8 @@ const DoctorSearch = ({ onConsultationCreated }) => {
     const [consultationSuccess, setConsultationSuccess] = useState('');
     const [treatmentsVersion, setTreatmentsVersion] = useState(0);
 
-    // Estados para el tratamiento
-    const [medication, setMedication] = useState('');
-    const [doseAmount, setDoseAmount] = useState('');
-    const [doseUnit, setDoseUnit] = useState('mg');
-    const [frequency, setFrequency] = useState('');
-    const [duration, setDuration] = useState('');
+    // Estado como array para múltiples tratamientos
+    const [treatments, setTreatments] = useState([{ ...emptyTreatment }]);
     const [catalog, setCatalog] = useState([]);
 
     useEffect(() => {
@@ -74,11 +74,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setShowConsultationForm(false);
         setLocation('');
         setDiagnosis('');
-        setMedication('');
-        setDoseAmount('');
-        setDoseUnit('mg');
-        setFrequency('');
-        setDuration('');
+        setTreatments([{ ...emptyTreatment }]);
     };
 
     const handleSearch = async (searchValue, isQr = false) => {
@@ -92,7 +88,6 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setConsultationSuccess('');
 
         try {
-            // Si escaneamos, llamamos al endpoint del QR. Si tipeamos, al del DNI.
             const data = isQr 
                 ? await getPatientByQr(searchValue) 
                 : await getPatientByDni(searchValue);
@@ -110,14 +105,35 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         }
     };
 
+    const handleTreatmentChange = (index, field, value) => {
+        const newTreatments = [...treatments];
+        newTreatments[index][field] = value;
+        setTreatments(newTreatments);
+    };
+
+    const addTreatmentForm = () => {
+        setTreatments([...treatments, { ...emptyTreatment }]);
+    };
+
+    const removeTreatmentForm = (index) => {
+        const newTreatments = treatments.filter((_, i) => i !== index);
+        setTreatments(newTreatments);
+    };
+
     const handleStartConsultation = async (e) => {
         e.preventDefault();
 
-        if (medication || doseAmount || frequency || duration) {
-            if (!medication || !doseAmount || !frequency || !duration) {
-                return setError('Para recetar un tratamiento, completá todos sus campos (medicamento, dosis, frecuencia y duración).');
+        // Filtramos los tratamientos que tienen al menos un campo lleno
+        const activeTreatments = treatments.filter(t => 
+            t.medication || t.doseAmount || t.frequency || t.duration
+        );
+
+        // Validación
+        for (const t of activeTreatments) {
+            if (!t.medication || !t.doseAmount || !t.frequency || !t.duration) {
+                return setError('Por favor, completá todos los campos de cada medicamento recetado.');
             }
-            if (Number(doseAmount) <= 0 || Number(frequency) <= 0 || Number(duration) <= 0) {
+            if (Number(t.doseAmount) <= 0 || Number(t.frequency) <= 0 || Number(t.duration) <= 0) {
                 return setError('La dosis, frecuencia y duración deben ser mayores a 0.');
             }
         }
@@ -126,34 +142,44 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setError('');
 
         try {
+            // 1. Crear Consulta
             const data = await createConsultation(patientData.id_patient, { location, diagnosis });
             const newConsultationId = data.consultation.id_consultation;
 
-            if (medication) {
+            // 2. Crear Tratamientos en paralelo (si hay)
+            if (activeTreatments.length > 0) {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/treatment/${newConsultationId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        medication: medication.trim(),
-                        dose: `${doseAmount}${doseUnit}`,
-                        frequency_hours: parseInt(frequency),
-                        duration_days: parseInt(duration)
+                
+                // Mapeamos los tratamientos a peticiones fetch
+                const treatmentPromises = activeTreatments.map(t => 
+                    fetch(`http://localhost:5000/api/treatment/${newConsultationId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            medication: t.medication.trim(),
+                            dose: `${t.doseAmount}${t.doseUnit}`,
+                            frequency_hours: parseInt(t.frequency),
+                            duration_days: parseInt(t.duration)
+                        })
+                    }).then(async (res) => {
+                        if (!res.ok) {
+                            const errData = await res.json();
+                            throw new Error(errData.message || `Error al guardar ${t.medication}`);
+                        }
+                        return res.json();
                     })
-                });
+                );
 
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.message || 'Error al guardar el tratamiento');
-                }
+                // Esperamos a que todas las peticiones terminen
+                await Promise.all(treatmentPromises);
             }
 
             setConsultationSuccess(
-                medication 
-                    ? 'Consulta y tratamiento registrados exitosamente.' 
+                activeTreatments.length > 0
+                    ? `Consulta guardada y ${activeTreatments.length} medicamento(s) recetado(s) exitosamente.` 
                     : 'Consulta médica registrada exitosamente.'
             );
             
@@ -226,7 +252,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                         />
                     </Box>
                 )}
-                {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+                {error && !showConsultationForm && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
             </Paper>
 
             {patientData && (
@@ -266,7 +292,8 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                         )}
 
                         {showConsultationForm && (
-                            <Box component="form" onSubmit={handleStartConsultation} sx={{ p: 3, bgcolor: '#F4F9FD', borderRadius: 3, border: '1px solid', borderColor: 'divider', mt: 2 }}>
+                            <Box component="form" onSubmit={handleStartConsultation} sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#F4F9FD', borderRadius: 3, border: '1px solid', borderColor: 'divider', mt: 2 }}>
+                                {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
                                 
                                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                                     1. Detalles de la atención
@@ -281,43 +308,50 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                                     2. Recetar tratamiento (Opcional)
                                 </Typography>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                                    <Autocomplete
-                                        freeSolo
-                                        options={catalog}
-                                        groupBy={(option) => option.category}
-                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
-                                        inputValue={medication}
-                                        onInputChange={(e, value) => setMedication(value)}
-                                        renderInput={(params) => <TextField {...params} label="Medicamento" placeholder="Escribí o elegí de la lista" />}
-                                    />
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <TextField 
-                                            fullWidth 
-                                            label="Dosis" 
-                                            type="number" 
-                                            placeholder="Ej: 600" 
-                                            value={doseAmount} 
-                                            onChange={(e) => setDoseAmount(e.target.value)}
-                                            slotProps={{ htmlInput: { min: 0.1, step: "any" } }}
+                                
+                                {treatments.map((treatment, index) => (
+                                    <Box key={index} sx={{ position: 'relative', display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.5fr 1fr 1fr 1fr' }, gap: 2, p: 2, mb: 2, bgcolor: '#fff', borderRadius: 2, border: '1px dashed', borderColor: 'divider' }}>
+                                        {treatments.length > 1 && (
+                                            <IconButton 
+                                                size="small" 
+                                                onClick={() => removeTreatmentForm(index)} 
+                                                sx={{ position: 'absolute', top: -12, right: -12, bgcolor: '#fff', border: '1px solid', borderColor: 'divider', color: 'error.main', '&:hover': { bgcolor: '#FEECEB' } }}
+                                            >
+                                                <DeleteOutlineRoundedIcon fontSize="small" />
+                                            </IconButton>
+                                        )}
+                                        <Autocomplete
+                                            freeSolo
+                                            options={catalog}
+                                            groupBy={(option) => option.category}
+                                            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                                            inputValue={treatment.medication}
+                                            onInputChange={(e, value) => handleTreatmentChange(index, 'medication', value)}
+                                            renderInput={(params) => <TextField {...params} label={`Medicamento ${index + 1}`} placeholder="Escribí o elegí" />}
                                         />
-                                        <TextField 
-                                            select 
-                                            value={doseUnit} 
-                                            onChange={(e) => setDoseUnit(e.target.value)}
-                                            sx={{ minWidth: 80 }}
-                                        >
-                                            <MenuItem value="mg">mg</MenuItem>
-                                            <MenuItem value="g">g</MenuItem>
-                                        </TextField>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <TextField 
+                                                fullWidth label="Dosis" type="number" placeholder="Ej: 600" 
+                                                value={treatment.doseAmount} onChange={(e) => handleTreatmentChange(index, 'doseAmount', e.target.value)}
+                                                slotProps={{ htmlInput: { min: 0.1, step: "any" } }}
+                                            />
+                                            <TextField select value={treatment.doseUnit} onChange={(e) => handleTreatmentChange(index, 'doseUnit', e.target.value)} sx={{ minWidth: 80 }}>
+                                                <MenuItem value="mg">mg</MenuItem>
+                                                <MenuItem value="g">g</MenuItem>
+                                            </TextField>
+                                        </Box>
+                                        <TextField fullWidth label="Cada (horas)" type="number" value={treatment.frequency} onChange={(e) => handleTreatmentChange(index, 'frequency', e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 8" />
+                                        <TextField fullWidth label="Duración (días)" type="number" value={treatment.duration} onChange={(e) => handleTreatmentChange(index, 'duration', e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 7" />
                                     </Box>
-                                    <TextField fullWidth label="Frecuencia (horas)" type="number" value={frequency} onChange={(e) => setFrequency(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 8" />
-                                    <TextField fullWidth label="Duración (días)" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} placeholder="Ej: 7" />
-                                </Box>
+                                ))}
 
-                                <Box sx={{ mt: 3.5, display: 'flex', gap: 1.5 }}>
+                                <Button size="small" variant="text" startIcon={<AddRoundedIcon />} onClick={addTreatmentForm} sx={{ mt: 1, fontWeight: 700 }}>
+                                    Añadir otro medicamento
+                                </Button>
+
+                                <Box sx={{ mt: 4, display: 'flex', gap: 1.5 }}>
                                     <Button type="submit" variant="contained" disabled={startingConsultation}>
-                                        {startingConsultation ? 'Guardando...' : 'Guardar y finalizar'}
+                                        {startingConsultation ? 'Guardando...' : 'Guardar consulta y recetas'}
                                     </Button>
                                     <Button color="inherit" onClick={() => { resetConsultation(); setError(''); }}>
                                         Cancelar
