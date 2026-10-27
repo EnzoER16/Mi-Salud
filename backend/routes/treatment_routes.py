@@ -228,3 +228,53 @@ def get_treatment_history(treatment_id):
         id_treatment=treatment_id
     ).order_by(TreatmentHistory.date_modified.desc()).all()
     return jsonify([h.to_json() for h in history]), 200
+
+@treatment_bp.route("/<treatment_id>/reschedule", methods=["PATCH"])
+@jwt_required()
+@role_required("Paciente")
+def reschedule_treatment(treatment_id):
+    user_id = get_jwt_identity()
+    patient = Patient.query.filter_by(id_user=user_id).first()
+    treatment = db.session.get(Treatment, treatment_id)
+    
+    if not treatment:
+        return jsonify({"message": "Tratamiento no encontrado."}), 404
+
+    # Verificamos que el tratamiento sea del paciente logueado
+    consultation = db.session.get(MedicalConsultation, treatment.id_consultation)
+    if consultation.id_patient != patient.id_patient:
+        return jsonify({"message": "Acceso denegado"}), 403
+
+    data = request.get_json(silent=True) or {}
+    new_time_str = data.get("new_time")
+    if not new_time_str:
+        return jsonify({"message": "Falta la nueva fecha y hora"}), 400
+
+    try:
+        # Parseamos el string del frontend a datetime UTC
+        new_time = datetime.fromisoformat(new_time_str.replace("Z", "+00:00"))
+    except ValueError:
+        return jsonify({"message": "Formato de fecha inválido"}), 400
+
+    # Buscamos SOLO las tomas pendientes ordenadas cronológicamente
+    pending_intakes = MedicationIntake.query.filter_by(
+        id_treatment=treatment_id, status="Pendiente"
+    ).order_by(MedicationIntake.scheduled_time.asc()).all()
+
+    if not pending_intakes:
+        return jsonify({"message": "No hay tomas pendientes para reprogramar."}), 400
+
+    # Desplazamos las tomas pendientes a partir del nuevo horario, manteniendo la frecuencia
+    current_time = new_time
+    for intake in pending_intakes:
+        intake.scheduled_time = current_time
+        current_time += timedelta(hours=treatment.frequency_hours)
+
+    # Dejamos un registro en el historial para el médico
+    db.session.add(TreatmentHistory(
+        id_treatment=treatment_id,
+        changes_details=f"El paciente ajustó sus horarios. Siguiente toma reprogramada para {new_time.strftime('%d/%m/%Y %H:%M')} UTC"
+    ))
+
+    db.session.commit()
+    return jsonify({"message": "Horarios actualizados exitosamente."}), 200

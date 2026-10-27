@@ -142,10 +142,19 @@ const Dashboard = () => {
                         <AppointmentsCard />
                     </Box>
 
-                    {/* Contenido */}
+                    {/* Contenido (Vista del Paciente) */}
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                        <TreatmentProgress refreshTrigger={refreshTrigger} />
-                        <PatientIntakes onIntakeChecked={() => setRefreshTrigger((prev) => prev + 1)} />
+                        
+                        <TreatmentProgress 
+                            refreshTrigger={refreshTrigger} 
+                            onRescheduled={() => setRefreshTrigger((prev) => prev + 1)} 
+                        />
+                        
+                        <PatientIntakes 
+                            refreshKey={refreshTrigger}
+                            onIntakeChecked={() => setRefreshTrigger((prev) => prev + 1)} 
+                        />
+                        
                         <PatientHistory />
                     </Box>
                 </Box>

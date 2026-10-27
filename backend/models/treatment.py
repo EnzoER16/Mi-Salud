@@ -28,6 +28,10 @@ class Treatment(db.Model):
         self.instructions = instructions
 
     def to_json(self):
+        # Buscamos todas las tomas pendientes y agarramos la más próxima
+        pending = [i for i in self.intakes if i.status == "Pendiente"]
+        next_time = min((i.scheduled_time for i in pending), default=None)
+
         return {
             "id_treatment": self.id_treatment,
             "id_consultation": self.id_consultation,
@@ -36,7 +40,8 @@ class Treatment(db.Model):
             "frequency_hours": self.frequency_hours,
             "duration_days": self.duration_days,
             "instructions": self.instructions,
-            "compliance": self.calculate_compliance() # Devolvemos el porcentaje directamente a React
+            "compliance": self.calculate_compliance(),
+            "next_intake_time": next_time.isoformat() if next_time else None # <--- Campo nuevo
         }
         
     def calculate_compliance(self):

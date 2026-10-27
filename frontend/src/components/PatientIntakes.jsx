@@ -13,7 +13,7 @@ import { cardSx } from '../theme';
 const toLocalTime = (iso) =>
     new Date(iso.endsWith('Z') ? iso : iso + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-const PatientIntakes = ({ onIntakeChecked }) => {
+const PatientIntakes = ({ onIntakeChecked, refreshKey }) => {
     const [intakes, setIntakes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -24,7 +24,7 @@ const PatientIntakes = ({ onIntakeChecked }) => {
 
     useEffect(() => {
         fetchIntakes();
-    }, []);
+    }, [refreshKey]);
 
     const fetchIntakes = async () => {
         try {

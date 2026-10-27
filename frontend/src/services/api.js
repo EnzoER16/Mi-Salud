@@ -422,3 +422,16 @@ export const getPatientByQr = async (patientId) => {
     });
     return handleResponse(response);
 };
+
+export const rescheduleTreatment = async (treatmentId, newTimeISO) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/treatment/${treatmentId}/reschedule`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ new_time: newTimeISO })
+    });
+    return handleResponse(response);
+};
