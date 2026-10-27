@@ -23,7 +23,8 @@ const Dashboard = () => {
     const [profileData, setProfileData] = useState(null);
 
     const [refreshTrigger, setRefreshTrigger] = useState(0);   // paciente: progreso
-    const [historyVersion, setHistoryVersion] = useState(0);   // médico: historial
+    const [historyVersion, setHistoryVersion] = useState(0);
+    const [doctorPatientOpen, setDoctorPatientOpen] = useState(false);   // médico: historial
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -76,8 +77,8 @@ const Dashboard = () => {
             {/* ===== Vista del médico ===== */}
             {profileData && user?.role === 'Doctor' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <DoctorSearch onConsultationCreated={() => setHistoryVersion((v) => v + 1)} />
-                    <DoctorHistory refreshKey={historyVersion} />
+                    <DoctorSearch onPatientChange={setDoctorPatientOpen} onConsultationCreated={() => setHistoryVersion((v) => v + 1)} />
+                    {!doctorPatientOpen && <DoctorHistory refreshKey={historyVersion} />}
                 </Box>
             )}
 

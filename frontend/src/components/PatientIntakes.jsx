@@ -43,7 +43,7 @@ const PatientIntakes = ({ onIntakeChecked }) => {
 
     if (loading) return <CircularProgress sx={{ mt: 2 }} />;
 
-    const taken = intakes.filter((i) => i.status === 'Tomado').length;
+
 
     return (
         <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3 } }}>
@@ -52,7 +52,7 @@ const PatientIntakes = ({ onIntakeChecked }) => {
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="h6">Mi medicación de hoy</Typography>
                     <Typography variant="body2" color="text.secondary">
-                        {intakes.length === 0 ? 'Sin tomas programadas' : `${taken} de ${intakes.length} tomas registradas`}
+                        {intakes.length === 0 ? 'Sin tomas programadas' : 'Medicamentos, diagnóstico y tomas de cada tratamiento'}
                     </Typography>
                 </Box>
             </Box>
@@ -73,6 +73,7 @@ const PatientIntakes = ({ onIntakeChecked }) => {
                                 sx={{
                                     display: 'flex',
                                     alignItems: 'center',
+                                    flexWrap: 'wrap',
                                     gap: 2,
                                     p: 1.5,
                                     borderRadius: 2.5,
@@ -96,13 +97,22 @@ const PatientIntakes = ({ onIntakeChecked }) => {
                                 >
                                     {toLocalTime(intake.scheduled_time)}
                                 </Box>
-                                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                                    {isTaken ? 'Ya tomaste esta dosis' : 'Pendiente de tomar'}
-                                </Typography>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="body2" fontWeight={700}>{intake.medication} · {intake.dose}</Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                                        {isTaken ? 'Ya tomaste esta dosis' : 'Pendiente de tomar'}
+                                    </Typography>
+                                    <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 1, pt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                        {intake.diagnosis && <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Diagnóstico: </Box>{intake.diagnosis}</Typography>}
+                                        <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Tratamiento: </Box>Cada {intake.frequency_hours} hs durante {intake.duration_days} días</Typography>
+                                        {intake.instructions && <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Indicaciones: </Box>{intake.instructions}</Typography>}
+                                        <Typography variant="caption" sx={{ display: 'block' }}><Box component="span" sx={{ color: 'text.secondary' }}>Tomas totales: </Box><Box component="span" sx={{ fontWeight: 700 }}>{intake.treatment_taken}/{intake.treatment_total}</Box></Typography>
+                                    </Box>
+                                </Box>
                                 {isTaken ? (
                                     <Chip label="Tomado" color="success" size="small" icon={<CheckCircleRoundedIcon />} />
                                 ) : (
-                                    <Button variant="contained" size="small" onClick={() => handleCheck(intake.id_intake)}>
+                                    <Button variant="contained" size="small" sx={{ ml: 'auto' }} onClick={() => handleCheck(intake.id_intake)}>
                                         Marcar tomado
                                     </Button>
                                 )}

@@ -45,6 +45,7 @@ const TreatmentProgress = ({ refreshTrigger }) => {
                             {`${t.compliance}%`}
                         </Typography>
                     </Box>
+                    {t.diagnosis && <Typography variant="body2" color="text.secondary">Diagnóstico: {t.diagnosis}</Typography>}
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         Cada {t.frequency_hours} hs durante {t.duration_days} días
                     </Typography>

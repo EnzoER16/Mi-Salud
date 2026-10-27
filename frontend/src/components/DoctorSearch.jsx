@@ -9,14 +9,15 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { getPatientByDni, createConsultation, generateAISummary } from '../services/api';
+import { getPatientByDni, createConsultation } from '../services/api';
 import NewTreatmentForm from './NewTreatmentForm';
 import TreatmentManager from './TreatmentManager';
 import PatientExtraInfo from './PatientExtraInfo';
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
-import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import PatientClinicalAnalysis from './PatientClinicalAnalysis';
 
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || 'P';
@@ -42,16 +43,13 @@ const InfoTile = ({ icon, label, value, warn = false }) => (
     </Box>
 );
 
-const DoctorSearch = ({ onConsultationCreated }) => {
+const DoctorSearch = ({ onConsultationCreated, onPatientChange }) => {
     const [dniInput, setDniInput] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [patientData, setPatientData] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const [aiSummary, setAiSummary] = useState(null);
-    const [loadingAi, setLoadingAi] = useState(false);
-    const [aiError, setAiError] = useState('');
 
     // Estados para la nueva consulta
     const [showConsultationForm, setShowConsultationForm] = useState(false);
@@ -61,6 +59,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
     const [activeConsultationId, setActiveConsultationId] = useState(null);
     const [consultationSuccess, setConsultationSuccess] = useState('');
     const [treatmentsVersion, setTreatmentsVersion] = useState(0);
+    const [analysisOpen, setAnalysisOpen] = useState(false);
 
     const resetConsultation = () => {
         setShowConsultationForm(false);
@@ -76,10 +75,10 @@ const DoctorSearch = ({ onConsultationCreated }) => {
         setLoading(true);
         setError('');
         setPatientData(null);
+        onPatientChange?.(false);
         setIsScanning(false);
         resetConsultation();
-        setAiSummary(null);
-        setAiError('');
+        setAnalysisOpen(false);
 
         try {
             const data = await getPatientByDni(dniToSearch);
@@ -87,6 +86,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                 setError('No se encontró ningún paciente con ese DNI.');
             } else {
                 setPatientData(data);
+                onPatientChange?.(true);
             }
         } catch (err) {
             setError(err.message || 'Paciente no encontrado o sin ficha médica.');
@@ -110,23 +110,11 @@ const DoctorSearch = ({ onConsultationCreated }) => {
             setActiveConsultationId(data.consultation.id_consultation);
             setConsultationSuccess('Consulta registrada. Ahora podés recetar un tratamiento.');
             if (onConsultationCreated) onConsultationCreated();
+            setTreatmentsVersion(v => v + 1);
         } catch (err) {
             setError(err.message || 'Error al guardar la consulta');
         } finally {
             setStartingConsultation(false);
-        }
-    };
-
-    const handleGenerateSummary = async () => {
-        setLoadingAi(true);
-        setAiError('');
-        try {
-            const data = await generateAISummary(patientData.id_patient);
-            setAiSummary(data.summary);
-        } catch (err) {
-            setAiError(err.message || 'Error al generar el resumen.');
-        } finally {
-            setLoadingAi(false);
         }
     };
 
@@ -226,6 +214,7 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                             p: { xs: 2.5, sm: 3 },
                             display: 'flex',
                             alignItems: 'center',
+                            flexWrap: 'wrap',
                             gap: 2,
                             borderBottom: '1px solid',
                             borderColor: 'divider',
@@ -246,18 +235,31 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                     : ''}
                             </Typography>
                         </Box>
-                        <Button
-                            size="small"
-                            color="inherit"
-                            onClick={() => { setPatientData(null); resetConsultation(); }}
-                            sx={{ letterSpacing: 0, textTransform: 'none', color: 'text.secondary' }}
-                        >
-                            Cerrar ficha
-                        </Button>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', md: 'flex-end' }, width: { xs: '100%', md: 'auto' } }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<QueryStatsOutlinedIcon />}
+                                onClick={() => setAnalysisOpen((value) => !value)}
+                                aria-expanded={analysisOpen}
+                                sx={{ bgcolor: '#fff', textTransform: 'none', fontWeight: 700 }}
+                            >
+                                {analysisOpen ? 'Ocultar análisis clínico' : 'Analizar historial clínico'}
+                            </Button>
+                            <Button
+                                size="small"
+                                color="inherit"
+                                onClick={() => { setPatientData(null); onPatientChange?.(false); resetConsultation(); setAnalysisOpen(false); }}
+                                sx={{ letterSpacing: 0, textTransform: 'none', color: 'text.secondary' }}
+                            >
+                                Cerrar ficha
+                            </Button>
+                        </Box>
                     </Box>
 
-                    <Box sx={{ p: { xs: 2.5, sm: 3 } }}>
-                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Ficha médica</Typography>
+                    {/* Datos personales y clínicos: una sección visual propia. */}
+                    <Box sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+                        <Typography variant="h6" fontWeight={700} sx={{ mb: 2.5 }}>Ficha médica</Typography>
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
                             <InfoTile
                                 icon={<BloodtypeOutlinedIcon fontSize="small" />}
@@ -276,50 +278,17 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                                 value={record?.antecedents || 'Ninguno'}
                             />
                         </Box>
-
-                        {/* ===== Sección de Resumen con IA ===== */}
-                        <Box sx={{ mb: 3 }}>
-                            {!aiSummary && !loadingAi && (
-                                <Button 
-                                    variant="outlined" 
-                                    color="secondary" 
-                                    startIcon={<AutoAwesomeRoundedIcon />}
-                                    onClick={handleGenerateSummary}
-                                    sx={{ borderRadius: 2, bgcolor: '#F8FAFC' }}
-                                >
-                                    Generar resumen clínico con IA
-                                </Button>
-                            )}
-
-                            {loadingAi && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'secondary.main', p: 1 }}>
-                                    <CircularProgress size={20} color="secondary" />
-                                    <Typography variant="body2" fontWeight={600}>Analizando historial del paciente...</Typography>
-                                </Box>
-                            )}
-
-                            {aiError && <Alert severity="error" sx={{ mb: 2 }}>{aiError}</Alert>}
-
-                            {aiSummary && (
-                                <Paper elevation={0} sx={{ p: 2.5, bgcolor: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 3 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                        <AutoAwesomeRoundedIcon sx={{ color: '#7C3AED', fontSize: 20 }} />
-                                        <Typography variant="subtitle2" sx={{ color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            Resumen Inteligente
-                                        </Typography>
-                                        <Chip label="Generado por IA" size="small" sx={{ ml: 'auto', bgcolor: '#EDE9FE', color: '#5B21B6', fontWeight: 600, fontSize: '0.7rem' }} />
-                                    </Box>
-                                    <Typography variant="body2" sx={{ color: '#4C1D95', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
-                                        {aiSummary}
-                                    </Typography>
-                                </Paper>
-                            )}
-                        </Box>
-                        {/* Datos adicionales que cargó el paciente (peso, condiciones, contactos de emergencia, vacunas...) */}
                         <PatientExtraInfo patientData={patientData} />
+                    </Box>
 
+                    {/* Mantener el mismo administrador de tratamientos, pero separado de la ficha. */}
+                    <Box sx={{ px: { xs: 2.5, sm: 3.5 }, py: { xs: 3, sm: 4 }, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#FBFDFE' }}>
                         <TreatmentManager patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
+                    </Box>
 
+                    {/* Acciones de atención: no alteramos su funcionamiento. */}
+                    <Box sx={{ px: { xs: 2.5, sm: 3.5 }, py: { xs: 3, sm: 4 }, borderTop: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="h6" fontWeight={700} sx={{ mb: 2.5 }}>Atención médica</Typography>
                         {/* Paso 1: botón para iniciar la consulta */}
                         {!showConsultationForm && !activeConsultationId && (
                             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setShowConsultationForm(true)}>
@@ -375,6 +344,12 @@ const DoctorSearch = ({ onConsultationCreated }) => {
                             </Box>
                         )}
                     </Box>
+
+                    {analysisOpen && (
+                        <Box sx={{ px: { xs: 2.5, sm: 3.5 }, py: { xs: 3, sm: 4 }, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#FBFDFE' }}>
+                            <PatientClinicalAnalysis patientId={patientData.id_patient} refreshKey={treatmentsVersion} />
+                        </Box>
+                    )}
                 </Paper>
             )}
         </Box>

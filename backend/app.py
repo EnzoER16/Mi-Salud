@@ -19,6 +19,8 @@ from routes.appointment_routes import appointment_bp
 from routes.patient_details_routes import patient_details_bp
 from routes.doctor_details_routes import doctor_details_bp
 from routes.vaccine_routes import vaccine_bp
+from models import care_member, care_activity
+from routes.care_group_routes import care_bp
 
 def create_app():
     app = Flask(__name__)
@@ -41,6 +43,7 @@ def create_app():
     app.register_blueprint(patient_details_bp)
     app.register_blueprint(doctor_details_bp)
     app.register_blueprint(vaccine_bp)
+    app.register_blueprint(care_bp)
 
     @app.errorhandler(413)
     def file_too_large(_error):
