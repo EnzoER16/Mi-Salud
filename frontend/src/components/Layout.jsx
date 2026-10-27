@@ -20,6 +20,7 @@ import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import OnboardingTour from './tour/OnboardingTour';
 import { markTourSeen } from './tour/tourState';
 import { TourContext } from './tour/TourContext';
+import { APPOINTMENTS_NAME } from '../constants/sections';
 
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
@@ -69,7 +70,7 @@ const Layout = ({ children }) => {
     // Navegación principal (en el centro del encabezado). Por ahora solo el paciente tiene más de una sección.
     const navItems = isDoctor ? [] : [
         { label: 'Inicio', path: '/dashboard', icon: <HomeOutlinedIcon fontSize="small" /> },
-        { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" />, tour: 'nav-turnos' },
+        { label: APPOINTMENTS_NAME, path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" />, tour: 'nav-turnos' },
     ];
 
     // Opciones del desplegable del perfil

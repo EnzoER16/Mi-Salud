@@ -11,6 +11,7 @@ import PatientHistory from '../components/PatientHistory';
 import PatientIntakes from '../components/PatientIntakes';
 import TreatmentProgress from '../components/TreatmentProgress';
 import AppointmentsCard from '../components/AppointmentsCard';
+import EmergencyCard from '../components/EmergencyCard';
 import PageHeader from '../components/PageHeader';
 import IconBadge from '../components/IconBadge';
 import { colors, cardSx, gradient } from '../theme';
@@ -108,14 +109,14 @@ const Dashboard = () => {
                         alignItems: 'start',
                     }}
                 >
-                    {/* Columna izquierda: credencial QR y acceso a Mis turnos.
+                    {/* Columna izquierda: credencial QR y acceso a Mis seguimientos, números de emergencia.
                         Queda fija al hacer scroll solo si la pantalla es lo bastante alta para mostrarla entera. */}
                     <Box
                         sx={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 3,
-                            '@media (min-width: 900px) and (min-height: 820px)': { position: 'sticky', top: 110 },
+                            '@media (min-width: 900px) and (min-height: 1150px)': { position: 'sticky', top: 110 },
                         }}
                     >
                         {/* Credencial QR */}
@@ -157,6 +158,7 @@ const Dashboard = () => {
                         </Paper>
 
                         <AppointmentsCard />
+                        <EmergencyCard />
                     </Box>
 
                     {/* Contenido */}

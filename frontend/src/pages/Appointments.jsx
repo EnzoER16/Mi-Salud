@@ -27,6 +27,7 @@ import {
 } from '../components/appointments/format';
 import { colors, cardSx } from '../theme';
 
+import { APPOINTMENTS_NAME } from '../constants/sections';
 // Elige qué turno mostrar: el que se pidió, o si no el próximo, o si no el más reciente
 const pickSelection = (appointments, wantedId, now) => {
     if (wantedId && appointments.some((a) => a.id_appointment === wantedId)) return wantedId;
@@ -182,11 +183,11 @@ const Appointments = () => {
         <Box>
             <Breadcrumbs aria-label="Ubicación" sx={{ mb: 1.5, fontSize: '0.8rem' }}>
                 <MuiLink component={RouterLink} to="/dashboard" underline="hover" color="text.secondary">Inicio</MuiLink>
-                <Typography sx={{ fontSize: '0.8rem', color: colors.teal, fontWeight: 600 }}>Mis turnos</Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: colors.teal, fontWeight: 600 }}>{APPOINTMENTS_NAME}</Typography>
             </Breadcrumbs>
 
             <PageHeader
-                title="Mis turnos"
+                title={APPOINTMENTS_NAME}
                 subtitle="Tus visitas y la documentación que querés llevar, en un mismo lugar."
                 action={
                     <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openNew}>

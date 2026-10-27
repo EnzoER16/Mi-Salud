@@ -13,6 +13,8 @@ import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
 import { Box, Typography } from '@mui/material';
 
+import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
+import { APPOINTMENTS_NAME } from '../../constants/sections';
 // Recorrido guiado. Cada paso puede tener:
 //  - target:  valor de data-tour del elemento real que se resalta (si falta, el paso se muestra en el centro)
 //  - try:     { hint, demo } → el usuario puede "probar" tocando el elemento resaltado. Ese toque NO hace la
@@ -92,12 +94,17 @@ export const PATIENT_STEPS = [
     },
     {
         target: 'nav-turnos', icon: <CalendarMonthOutlinedIcon fontSize="inherit" />, tone: 'teal',
-        title: 'Mis turnos',
+        title: APPOINTMENTS_NAME,
         text: 'Guardá tus turnos y, en cada uno, tus estudios, fotos, documentos y notas. Así los tenés siempre a mano.',
         try: {
-            hint: 'Probá tocar «Mis turnos»',
+            hint: `Probá tocar «${APPOINTMENTS_NAME}»`,
             demo: <Row icon={<CalendarMonthOutlinedIcon fontSize="inherit" />} title="Turno con Cardiología" sub="2 archivos · 1 nota" />,
         },
+    },
+    {
+        target: 'emergency', icon: <EmergencyOutlinedIcon fontSize="inherit" />, tone: 'amber',
+        title: 'Números de emergencia',
+        text: 'Siempre a mano: tocá «Llamar al 911» desde el celular. Con «Ver todos los números» desplegás bomberos, Defensa Civil, líneas de apoyo y los de Mendoza.',
     },
     {
         target: 'user-menu', icon: <ManageAccountsOutlinedIcon fontSize="inherit" />, tone: 'blue',
