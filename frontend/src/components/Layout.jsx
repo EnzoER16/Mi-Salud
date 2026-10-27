@@ -11,6 +11,7 @@ import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Brand from './Brand';
@@ -43,6 +44,7 @@ const Layout = ({ children }) => {
     const navItems = isDoctor ? [] : [
         { label: 'Inicio', path: '/dashboard', icon: <HomeOutlinedIcon fontSize="small" /> },
         { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" /> },
+        { label: 'Mi grupo de cuidado', path: '/care-group', icon: <GroupsOutlinedIcon fontSize="small" /> },
     ];
 
     // Opciones del desplegable del perfil

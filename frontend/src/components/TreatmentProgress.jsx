@@ -123,6 +123,11 @@ const TreatmentProgress = ({ refreshTrigger, onRescheduled }) => {
                             color={t.compliance === 100 ? 'success' : 'primary'}
                             sx={{ height: 10, borderRadius: 5, bgcolor: '#E6F5F7' }}
                         />
+                        {t.diagnosis && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                                Diagnóstico: {t.diagnosis}
+                            </Typography>
+                        )}
                     </Box>
                 );
             })}

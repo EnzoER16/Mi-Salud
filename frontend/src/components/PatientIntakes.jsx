@@ -53,7 +53,6 @@ const PatientIntakes = ({ onIntakeChecked, refreshKey }) => {
 
     const taken = intakes.filter((i) => i.status === 'Tomado').length;
     const skipped = intakes.filter((i) => i.status === 'Omitido').length;
-
     return (
         <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2.5, sm: 3 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
@@ -61,7 +60,7 @@ const PatientIntakes = ({ onIntakeChecked, refreshKey }) => {
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="h6">Mi medicación de hoy</Typography>
                     <Typography variant="body2" color="text.secondary">
-                        {intakes.length === 0 ? 'Sin tomas programadas' : `${taken} tomadas, ${skipped} salteadas de ${intakes.length} totales`}
+                        {intakes.length === 0 ? 'Sin tomas programadas' : 'Medicamentos, diagnóstico y tomas de cada tratamiento'}
                     </Typography>
                 </Box>
             </Box>
@@ -88,9 +87,15 @@ const PatientIntakes = ({ onIntakeChecked, refreshKey }) => {
                             <Box
                                 key={intake.id_intake}
                                 sx={{
-                                    display: 'flex', alignItems: 'center', gap: 2, p: 1.5,
-                                    borderRadius: 2.5, border: '1px solid',
-                                    borderColor, bgcolor,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: 2,
+                                    p: 1.5,
+                                    borderRadius: 2.5,
+                                    border: '1px solid',
+                                    borderColor,
+                                    bgcolor,
                                 }}
                             >
                                 <Box
@@ -102,13 +107,18 @@ const PatientIntakes = ({ onIntakeChecked, refreshKey }) => {
                                 >
                                     {toLocalTime(intake.scheduled_time)}
                                 </Box>
-                                
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant="body2" fontWeight={700}>{intake.medication} · {intake.dose}</Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
                                         {isTaken ? 'Ya tomaste esta dosis' : isSkipped ? 'Salteaste esta dosis' : 'Pendiente de tomar'}
                                     </Typography>
+                                    <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 1, pt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                        {intake.diagnosis && <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Diagnóstico: </Box>{intake.diagnosis}</Typography>}
+                                        <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Tratamiento: </Box>Cada {intake.frequency_hours} hs durante {intake.duration_days} días</Typography>
+                                        {intake.instructions && <Typography variant="caption" sx={{ display: 'block', overflowWrap: 'anywhere' }}><Box component="span" sx={{ color: 'text.secondary' }}>Indicaciones: </Box>{intake.instructions}</Typography>}
+                                        <Typography variant="caption" sx={{ display: 'block' }}><Box component="span" sx={{ color: 'text.secondary' }}>Tomas totales: </Box><Box component="span" sx={{ fontWeight: 700 }}>{intake.treatment_taken}/{intake.treatment_total}</Box></Typography>
+                                    </Box>
                                 </Box>
-
                                 {isTaken ? (
                                     <Chip label="Tomado" color="success" size="small" icon={<CheckCircleRoundedIcon />} />
                                 ) : isSkipped ? (

@@ -435,3 +435,21 @@ export const rescheduleTreatment = async (treatmentId, newTimeISO) => {
     });
     return handleResponse(response);
 };
+
+// Análisis estadístico del historial del paciente seleccionado (sin IA).
+export const getPatientClinicalAnalysis = async (patientId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/doctor/patient/${encodeURIComponent(patientId)}/clinical-analysis`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'No se pudo cargar el análisis clínico.');
+    }
+    return response.json();
+};
+
+export const getFinishedTreatmentAnalysis = async (patientId) => {
+  const response = await fetch(`${API_URL}/doctor/patient/${patientId}/treatment-history-analysis`, {headers: {Authorization: `Bearer ${localStorage.getItem('token')}`}});
+  return handleResponse(response);
+};

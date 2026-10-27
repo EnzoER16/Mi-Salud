@@ -199,7 +199,13 @@ def get_my_treatments():
     ).all()
 
     # El to_json() del modelo ya incluye el "compliance" con el porcentaje
-    return jsonify([t.to_json() for t in treatments]), 200
+    result = []
+    for treatment in treatments:
+        row = treatment.to_json()
+        consultation = db.session.get(MedicalConsultation, treatment.id_consultation)
+        row['diagnosis'] = consultation.diagnosis if consultation else None
+        result.append(row)
+    return jsonify(result), 200
 
 @treatment_bp.route("/patient/<patient_id>", methods=["GET"])
 @jwt_required()
