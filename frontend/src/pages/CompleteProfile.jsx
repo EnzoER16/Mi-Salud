@@ -88,8 +88,11 @@ const CompleteProfile = () => {
                 await createProfile(pro, 'Doctor');
                 await saveDoctorDetails(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, orNullValue(place[f])])));
             }
+            const firstTime = !hasProfile;
             setHasProfile(true);
             setFeedback('Datos guardados correctamente.');
+            // Primera vez: volvemos al Inicio, donde arranca el recorrido guiado
+            if (firstTime) navigate('/dashboard');
         } catch (err) {
             setError(err.message);
         } finally {

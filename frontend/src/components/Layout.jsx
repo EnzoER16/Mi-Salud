@@ -1,7 +1,7 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     AppBar, Box, Toolbar, Typography, Container, Menu, MenuItem, Divider,
-    Avatar, Button, ButtonBase, ListItemIcon,
+    Avatar, Button, ButtonBase, ListItemIcon, IconButton, Tooltip,
 } from '@mui/material';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
@@ -16,6 +16,10 @@ import { AuthContext } from '../context/AuthContext';
 import Brand from './Brand';
 import NotificationBell from './NotificationBell';
 import { gradient } from '../theme';
+import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
+import OnboardingTour from './tour/OnboardingTour';
+import { markTourSeen } from './tour/tourState';
+import { TourContext } from './tour/TourContext';
 
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
@@ -25,6 +29,29 @@ const Layout = ({ children }) => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const [anchorEl, setAnchorEl] = useState(null);
+
+    // Recorrido guiado: NO se abre solo al iniciar sesión. Lo dispara el Inicio cuando la persona ya completó
+    // sus datos (así hay cosas reales para señalar). También se puede abrir a mano con el botón «?».
+    const [tourOpen, setTourOpen] = useState(false);
+    const startTour = useCallback(() => setTourOpen(true), []);
+    const tourCtx = useMemo(() => ({ startTour }), [startTour]);
+
+    const closeTour = () => {
+        markTourSeen(user);   // omitirlo, cerrarlo o terminarlo cuenta igual: no vuelve a aparecer solo
+        setTourOpen(false);
+    };
+    const openTour = () => {
+        setAnchorEl(null);
+        if (pathname !== '/dashboard') navigate('/dashboard');   // los elementos que se señalan están en el Inicio
+        setTourOpen(true);
+    };
+
+    // Si la persona sale del Inicio con el recorrido abierto (botón "atrás" del navegador, por ejemplo), se cierra
+    const lastPath = useRef(pathname);
+    useEffect(() => {
+        if (lastPath.current !== pathname && pathname !== '/dashboard') setTourOpen(false);
+        lastPath.current = pathname;
+    }, [pathname]);
 
     const go = (path) => {
         setAnchorEl(null);
@@ -42,7 +69,7 @@ const Layout = ({ children }) => {
     // Navegación principal (en el centro del encabezado). Por ahora solo el paciente tiene más de una sección.
     const navItems = isDoctor ? [] : [
         { label: 'Inicio', path: '/dashboard', icon: <HomeOutlinedIcon fontSize="small" /> },
-        { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" /> },
+        { label: 'Mis turnos', path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" />, tour: 'nav-turnos' },
     ];
 
     // Opciones del desplegable del perfil
@@ -104,6 +131,7 @@ const Layout = ({ children }) => {
                                             key={item.path}
                                             onClick={() => go(item.path)}
                                             aria-label={item.label}
+                                            data-tour={item.tour}
                                             aria-current={active ? 'page' : undefined}
                                             startIcon={item.icon}
                                             sx={{
@@ -129,9 +157,18 @@ const Layout = ({ children }) => {
 
                             {user ? (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, justifySelf: 'end' }}>
-                                    {user.role === 'Paciente' && <NotificationBell />}
+                                    <Tooltip title="Ver tutorial">
+                                        <IconButton onClick={openTour} aria-label="Ayuda: ver tutorial" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'inline-flex' } }}>
+                                            <HelpOutlineRoundedIcon />
+                                        </IconButton>
+                                    </Tooltip>
+
+                                    {user.role === 'Paciente' && (
+                                        <Box data-tour="bell" sx={{ display: 'inline-flex' }}><NotificationBell /></Box>
+                                    )}
 
                                     <ButtonBase
+                                        data-tour="user-menu"
                                         onClick={(e) => setAnchorEl(e.currentTarget)}
                                         sx={{
                                             display: 'flex',
@@ -183,6 +220,10 @@ const Layout = ({ children }) => {
                                         </Box>
                                         <Divider />
                                         {menuItems}
+                                        <MenuItem onClick={openTour}>
+                                            <ListItemIcon><HelpOutlineRoundedIcon fontSize="small" /></ListItemIcon>
+                                            Ver tutorial
+                                        </MenuItem>
                                         <Divider />
                                         <MenuItem onClick={handleLogout} sx={{ color: 'error.main', fontWeight: 600 }}>
                                             <ListItemIcon><LogoutRoundedIcon fontSize="small" color="error" /></ListItemIcon>
@@ -196,8 +237,10 @@ const Layout = ({ children }) => {
                 </AppBar>
             </Box>
 
+            {user && <OnboardingTour open={tourOpen} role={user.role} onClose={closeTour} />}
+
             <Container component="main" maxWidth="lg" sx={{ flexGrow: 1, py: { xs: 3, md: 5 }, display: 'flex', flexDirection: 'column' }}>
-                {children}
+                <TourContext.Provider value={tourCtx}>{children}</TourContext.Provider>
             </Container>
 
             <Box component="footer" sx={{ bgcolor: '#fff', borderTop: '1px solid', borderColor: 'divider' }}>
