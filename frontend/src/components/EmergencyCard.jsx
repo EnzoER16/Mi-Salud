@@ -25,14 +25,7 @@ const GROUPS = [
             { number: '142', label: 'Niños perdidos', hint: 'Atención las 24 hs' },
         ],
     },
-    {
-        title: 'Mendoza',
-        items: [
-            { number: '148', label: 'Atención Ciudadana', hint: 'Trámites y algunas denuncias' },
-            { number: '0800 333 3672', label: 'EDEMSA', hint: 'Emergencias eléctricas' },
-            { number: '0800 999 1600', label: 'Ecogas', hint: 'Emergencias de gas' },
-        ],
-    },
+   
 ];
 
 const telHref = (n) => `tel:${n.replace(/\D/g, '')}`;

@@ -14,6 +14,7 @@ import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
 import { Box, Typography } from '@mui/material';
 
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import { APPOINTMENTS_NAME } from '../../constants/sections';
 // Recorrido guiado. Cada paso puede tener:
 //  - target:  valor de data-tour del elemento real que se resalta (si falta, el paso se muestra en el centro)
@@ -99,6 +100,22 @@ export const PATIENT_STEPS = [
         try: {
             hint: `Probá tocar «${APPOINTMENTS_NAME}»`,
             demo: <Row icon={<CalendarMonthOutlinedIcon fontSize="inherit" />} title="Turno con Cardiología" sub="2 archivos · 1 nota" />,
+        },
+    },
+    {
+        target: 'nav-care', icon: <GroupsOutlinedIcon fontSize="inherit" />, tone: 'blue',
+        title: 'Mi grupo de cuidado',
+        text: 'Invitá por correo a un familiar o cuidador para que te acompañe con tu medicación. Vos elegís qué puede ver o hacer y podés quitarle el acceso cuando quieras. Si alguien te invita a vos, la invitación aparece acá.',
+        try: {
+            hint: 'Probá tocar «Mi grupo de cuidado»',
+            demo: (
+                <Stack>
+                    <Row icon={<GroupsOutlinedIcon fontSize="inherit" />} title="Invitar a Ana · Familiar" sub="Con una cuenta de MiSalud+ ya creada" />
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                        <Pill>Ver medicación</Pill><Pill tone="#E8F1FD" color="#1A5FB4">Registrar tomas</Pill><Pill tone="#FFF4DD" color="#9A6200">Ver ficha médica</Pill>
+                    </Box>
+                </Stack>
+            ),
         },
     },
     {

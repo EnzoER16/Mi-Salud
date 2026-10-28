@@ -72,7 +72,7 @@ const Layout = ({ children }) => {
     const navItems = isDoctor ? [] : [
         { label: 'Inicio', path: '/dashboard', icon: <HomeOutlinedIcon fontSize="small" /> },
         { label: APPOINTMENTS_NAME, path: '/appointments', icon: <CalendarMonthOutlinedIcon fontSize="small" />, tour: 'nav-turnos' },
-        { label: 'Mi grupo de cuidado', path: '/care-group', icon: <GroupsOutlinedIcon fontSize="small" /> },
+        { label: 'Mi grupo de cuidado', path: '/care-group', icon: <GroupsOutlinedIcon fontSize="small" />, tour: 'nav-care' },
     ];
 
     // Opciones del desplegable del perfil
