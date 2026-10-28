@@ -6,6 +6,7 @@ const tones = {
     teal: { bg: '#E6F5F7', fg: colors.teal },
     green: { bg: '#EEF6E4', fg: '#5C9A22' },
     amber: { bg: '#FFF4E0', fg: '#B26A00' },
+    red: { bg: '#FDECEA', fg: '#C62828' },
 };
 
 // Cuadradito redondeado con un ícono adentro (se ve en el boceto junto a "Buscar Paciente")

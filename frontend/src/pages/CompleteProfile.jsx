@@ -99,13 +99,15 @@ const CompleteProfile = () => {
                 await createProfile({ ...pro, username: name.trim() }, 'Doctor');
                 await saveDoctorDetails(Object.fromEntries(DOCTOR_PRO_FIELDS.map((f) => [f, orNullValue(place[f])])));
             }
-            
-            // Actualizamos la sesión en React para que el nombre cambie instantáneamente en el navbar
+            // Actualizamos la sesión para reflejar el nombre nuevo en el encabezado.
             const updatedUser = { ...user, username: name.trim() };
             login(updatedUser, localStorage.getItem('token'));
 
+            const firstTime = !hasProfile;
             setHasProfile(true);
             setFeedback('Datos guardados correctamente.');
+            // Primera vez: volvemos al Inicio, donde arranca el recorrido guiado
+            if (firstTime) navigate('/dashboard');
         } catch (err) {
             setError(err.message);
         } finally {

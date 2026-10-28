@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Box, Typography, Button, Paper, CircularProgress, Chip } from '@mui/material';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { AuthContext } from '../context/AuthContext';
@@ -11,13 +11,18 @@ import PatientHistory from '../components/PatientHistory';
 import PatientIntakes from '../components/PatientIntakes';
 import TreatmentProgress from '../components/TreatmentProgress';
 import AppointmentsCard from '../components/AppointmentsCard';
+import EmergencyCard from '../components/EmergencyCard';
 import PageHeader from '../components/PageHeader';
 import IconBadge from '../components/IconBadge';
 import { colors, cardSx, gradient } from '../theme';
+import { TourContext } from '../components/tour/TourContext';
+import { hasSeenTour } from '../components/tour/tourState';
 
 const Dashboard = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
+    const { startTour } = useContext(TourContext);
+    const tourAsked = useRef(false);
 
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [profileData, setProfileData] = useState(null);
@@ -43,6 +48,14 @@ const Dashboard = () => {
         }
     }, [user]);
 
+    // Recorrido guiado: recién cuando la persona completó sus datos y ve su inicio de verdad (una sola vez por usuario)
+    useEffect(() => {
+        if (loadingProfile || !profileData || !user || tourAsked.current || hasSeenTour(user)) return undefined;
+        tourAsked.current = true;
+        const t = setTimeout(startTour, 700);   // un instante para que terminen de dibujarse las tarjetas
+        return () => { clearTimeout(t); tourAsked.current = false; };
+    }, [loadingProfile, profileData, user, startTour]);
+
     if (loadingProfile) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -66,6 +79,7 @@ const Dashboard = () => {
                         <Typography variant="h6">Completá tu perfil</Typography>
                         <Typography variant="body2" color="text.secondary">
                             Necesitamos unos datos más para habilitar todas las funciones de la plataforma.
+                            Cuando termines, te mostramos un recorrido rápido por la aplicación.
                         </Typography>
                     </Box>
                     <Button variant="contained" onClick={() => navigate('/complete-profile')}>
@@ -77,8 +91,14 @@ const Dashboard = () => {
             {/* ===== Vista del médico ===== */}
             {profileData && user?.role === 'Doctor' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <DoctorSearch onPatientChange={setDoctorPatientOpen} onConsultationCreated={() => setHistoryVersion((v) => v + 1)} />
-                    {!doctorPatientOpen && <DoctorHistory refreshKey={historyVersion} />}
+                    <Box data-tour="doctor-search">
+                        <DoctorSearch onPatientChange={setDoctorPatientOpen} onConsultationCreated={() => setHistoryVersion((v) => v + 1)} />
+                    </Box>
+                    {!doctorPatientOpen && (
+                        <Box data-tour="doctor-history">
+                            <DoctorHistory refreshKey={historyVersion} />
+                        </Box>
+                    )}
                 </Box>
             )}
 
@@ -92,18 +112,18 @@ const Dashboard = () => {
                         alignItems: 'start',
                     }}
                 >
-                    {/* Columna izquierda: credencial QR y acceso a Mis turnos.
+                    {/* Columna izquierda: credencial QR y acceso a Mis seguimientos, números de emergencia.
                         Queda fija al hacer scroll solo si la pantalla es lo bastante alta para mostrarla entera. */}
                     <Box
                         sx={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 3,
-                            '@media (min-width: 900px) and (min-height: 820px)': { position: 'sticky', top: 110 },
+                            '@media (min-width: 900px) and (min-height: 1150px)': { position: 'sticky', top: 110 },
                         }}
                     >
                         {/* Credencial QR */}
-                        <Paper elevation={0} sx={{ ...cardSx, overflow: 'hidden', textAlign: 'center' }}>
+                        <Paper data-tour="qr" elevation={0} sx={{ ...cardSx, overflow: 'hidden', textAlign: 'center' }}>
                             <Box sx={{ height: 6, background: gradient }} />
                             <Box sx={{ p: 3 }}>
                                 <Typography variant="overline" sx={{ color: colors.teal, fontWeight: 700, letterSpacing: '0.08em' }}>
@@ -141,21 +161,21 @@ const Dashboard = () => {
                         </Paper>
 
                         <AppointmentsCard />
+                        <EmergencyCard />
                     </Box>
 
                     {/* Contenido (Vista del Paciente) */}
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                        
-                        <TreatmentProgress 
-                            refreshTrigger={refreshTrigger} 
-                            onRescheduled={() => setRefreshTrigger((prev) => prev + 1)} 
+                        <TreatmentProgress
+                            refreshTrigger={refreshTrigger}
+                            onRescheduled={() => setRefreshTrigger((prev) => prev + 1)}
                         />
-                        
-                        <PatientIntakes 
-                            refreshKey={refreshTrigger}
-                            onIntakeChecked={() => setRefreshTrigger((prev) => prev + 1)} 
-                        />
-                        
+                        <Box data-tour="meds">
+                            <PatientIntakes
+                                refreshKey={refreshTrigger}
+                                onIntakeChecked={() => setRefreshTrigger((prev) => prev + 1)}
+                            />
+                        </Box>
                         <PatientHistory />
                     </Box>
                 </Box>

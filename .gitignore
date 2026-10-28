@@ -26,3 +26,4 @@ dist
 
 # Archivos temporales
 .pytest_cache/
+frontend/dist/
