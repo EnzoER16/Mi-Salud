@@ -18,8 +18,10 @@ import { getPatientByDni, getPatientByQr, createConsultation, getMedications } f
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import TreatmentManager from './TreatmentManager';
 import PatientClinicalAnalysis from './PatientClinicalAnalysis';
+import PatientExtraInfo from './PatientExtraInfo'; // <-- ACÁ ESTÁ LA IMPORTACIÓN QUE FALTABA
 import IconBadge from './IconBadge';
 import { colors, cardSx } from '../theme';
+
 const initials = (name = '') =>
     name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || 'P';
 
@@ -315,6 +317,9 @@ const DoctorSearch = ({ onConsultationCreated, onPatientChange }) => {
                             <InfoTile icon={<WarningAmberRoundedIcon fontSize="small" />} label="Alergias" value={hasAllergies ? allergies : 'Ninguna'} warn={hasAllergies} />
                             <InfoTile icon={<AssignmentOutlinedIcon fontSize="small" />} label="Antecedentes" value={record?.antecedents || 'Ninguno'} />
                         </Box>
+                        
+                        {/* ACÁ LLAMAMOS AL COMPONENTE QUE MUESTRA TODO EL RESTO DE LA INFO DEL PACIENTE */}
+                        <PatientExtraInfo patientData={patientData} />
                     </Box>
 
                     {/* Mantener el mismo administrador de tratamientos, pero separado de la ficha. */}
