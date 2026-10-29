@@ -18,10 +18,10 @@ export default function MyCareActivity() {
   useEffect(() => { refresh(); }, []);
   return <Paper elevation={0} sx={{ ...cardSx, p: { xs: 2, sm: 3 } }}>
     <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1} sx={{ mb: 2 }}>
-      <Box><Typography variant="h6">Actividad en mi cuidado</Typography>
-        <Typography variant="body2" color="text.secondary">Registros realizados por personas autorizadas.</Typography></Box>
-      <Button size="small" variant="outlined" onClick={refresh}>Actualizar</Button>
-    </Stack>
+      <Box>
+        <Typography variant="h6">Actividad en mi cuidado</Typography>
+        <Typography variant="body2" color="text.secondary">Registros realizados por personas autorizadas.</Typography>
+        <Button size="small" variant="outlined" onClick={refresh} sx={{ mt: 1 }}>Actualizar</Button></Box></Stack>
     {loading ? <CircularProgress size={24}/> : error ? <Alert severity="error">{error}</Alert> : rows.length === 0 ?
       <Typography color="text.secondary">Todavía no hay tomas registradas por familiares o cuidadores.</Typography> :
       <Stack divider={<Divider/>} spacing={1.5}>{rows.map(row => <Box key={row.id_activity}>

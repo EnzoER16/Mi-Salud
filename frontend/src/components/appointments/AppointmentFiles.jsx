@@ -117,6 +117,9 @@ const AppointmentFiles = ({ appointment, onChanged, onFeedback, onPreview }) => 
                     bgcolor: dragging ? 'primary.light' : '#F6FBFC',
                     borderRadius: 3,
                     p: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     textAlign: 'center',
                     transition: 'all .15s ease',
                 }}
